@@ -6,7 +6,7 @@ import * as fs from 'fs';
 
 // hyperparameters
 const BATCH_SIZE = 32;
-const BLOCK_SIZE = 8;
+const BLOCK_SIZE = 32;
 const MAX_ITERS = 10000;
 
 // read in data file
@@ -66,23 +66,29 @@ function getBatch(split){
 class BigramLanguageModel extends tf.layers.Layer {
   constructor(vocabSize){
     super({});
-    this.tokenEmbeddingTable = tf.layers.embedding({
-      inputDim: vocabSize,
-      outputDim: vocabSize
-    });
+    this.tokenEmbeddingTable = null;
     this.vocabSize = vocabSize;
+    this.built = false;
   }
 
-  call(inputs, kwargs = {}){
-    // get raw logits tensor from embedding table
-    const logitsT = this.tokenEmbeddingTable.apply(inputs);
+  build(){
+    this.tokenEmbeddingTable = tf.layers.embedding({
+      inputDim: this.vocabSize,
+      outputDim: this.vocabSize,
+    });
+    this.tokenEmbeddingTable.build([null, BLOCK_SIZE]);
+    this.built = true;
+  }
 
-    if(Object.keys(kwargs).length == 0){
-      // if no targets specified, just return logits
-      return {logits: logitsT, loss: null};
-    } else{
-      // if targets specified, perform loss calculations
-      const targets = kwargs.targets;
+  call(inputs){
+    // get raw logits tensor from embedding table
+    const logits = this.tokenEmbeddingTable.apply(inputs);
+    return logits;
+  }
+  
+  loss(inputs, targets){
+      // get logits
+      const logitsT = this.apply(inputs);
 
       // flatten logits and targets
       const flatLogits = logitsT.reshape([-1, this.vocabSize]);
@@ -91,31 +97,30 @@ class BigramLanguageModel extends tf.layers.Layer {
       // convert targets to one hot vectors to conform to tf.softmaxCrossEntropy
       const oneHotTargets = tf.oneHot(flatTargets, this.vocabSize);
 
-      // calculate and return loss, along with logits
-      const lossT = tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
-      return {logits: logitsT, loss: lossT};
-    }
+      // calculate and return loss
+      const loss = tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
+      return loss;
   }
-  
+
   generate(context, maxTokens){
     for(let i = 0; i < maxTokens; i++){
       // get predictions
-      const logits = this.apply(context).logits;
+      const logits = this.apply(context);
 
       // get last time step
       const last = tf.gather(logits, logits.shape[1] - 1, 1);
 
-      // perform softmax normalization
-      const probs = tf.softmax(last);
+      // otherwise evens the resulting probabilities out and gives poor output
+      const scaledLast = last.mul(tf.scalar(3)); 
 
       // sample from distribution
-      const next = tf.multinomial(probs, 1);
+      const next = tf.multinomial(scaledLast, 1);
 
       // append to running sequence
       const concatLayer = tf.layers.concatenate();
       context = concatLayer.apply([context, next]);
     }
-    
+
     return context;
   } 
 
@@ -123,40 +128,29 @@ class BigramLanguageModel extends tf.layers.Layer {
 }
 // define model and optimizer
 const bgmodel = new BigramLanguageModel(vocabSizeVal);
-const optimizer = tf.train.adam(0.001);
-
-tf.tidy(() => {
-  // a single forward pass on a zero tensor of the right shape
-  bgmodel.call(tf.zeros([1, BLOCK_SIZE], 'int32'), {});
-});
+const optimizer = tf.train.adam(0.0001);
+bgmodel.build();
 
 // training loop
 for(let i = 0; i < MAX_ITERS; i++){
+  // get batch
   const batch = getBatch("train");
   const xb = batch.x;
   const yb = batch.y;
-  tf.tidy(() => {
-    const lossScalar = optimizer.minimize(() => {
-      // pull out the vector loss and reduce it
-      const { loss: lossVec } = bgmodel.call(xb, { targets: yb });
-      return lossVec.mean();    // <-- scalar
-    }, /* returnCost */ true);
+  
+  // get loss
+  optimizer.minimize(() => {
+    const loss = bgmodel.loss(xb, yb);
+    return loss;
+  });
 
-    // log every so often
-    if (i % 500 === 0) {
-      console.log(`Iteration ${i}: loss = ${lossScalar.dataSync()[0].toFixed(4)}`);
-    }
-
-    // dispose the scalar loss
-    lossScalar.dispose();
-  }); 
+  xb.dispose();
+  yb.dispose();
 }
+
+optimizer.dispose();
 
 // decode and print results
 const cont = tf.zeros([1, 1], "int32");
 const batcharr = bgmodel.generate(cont, 200).arraySync()[0];
 console.log(decode(batcharr));
-
-
-
-
