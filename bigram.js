@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
+import '@tensorflow/tfjs-node';
 import * as tf from '@tensorflow/tfjs';
 import * as fs from 'fs';
 
 // hyperparameters
-const BATCH_SIZE = 4;
+const BATCH_SIZE = 32;
 const BLOCK_SIZE = 8;
+const MAX_ITERS = 10000;
 
 // read in data file
 const dataStr = fs.readFileSync('data.txt').toString();
@@ -23,7 +25,7 @@ function decode(toks){
 }
 
 // set up training and validation data
-const dataTensor = tf.tensor(encode(dataStr));
+const dataTensor = tf.tensor(encode(dataStr), undefined, "int32");
 const trainSize = Math.round(0.9 * dataTensor.size);
 const valSize = dataTensor.size - trainSize;
 
@@ -55,9 +57,9 @@ function getBatch(split){
   }
   
   // use stack to convert to 2D tensor
-  const x = tf.stack(xRows);
-  const y = tf.stack(yRows);
-  return [x, y];
+  const xVal = tf.stack(xRows);
+  const yVal = tf.stack(yRows);
+  return {x: xVal, y: yVal};
 }
 
 // define bigram model
@@ -119,3 +121,42 @@ class BigramLanguageModel extends tf.layers.Layer {
 
   getClassName() { return 'BigramLanguageModel'; }
 }
+// define model and optimizer
+const bgmodel = new BigramLanguageModel(vocabSizeVal);
+const optimizer = tf.train.adam(0.001);
+
+tf.tidy(() => {
+  // a single forward pass on a zero tensor of the right shape
+  bgmodel.call(tf.zeros([1, BLOCK_SIZE], 'int32'), {});
+});
+
+// training loop
+for(let i = 0; i < MAX_ITERS; i++){
+  const batch = getBatch("train");
+  const xb = batch.x;
+  const yb = batch.y;
+  tf.tidy(() => {
+    const lossScalar = optimizer.minimize(() => {
+      // pull out the vector loss and reduce it
+      const { loss: lossVec } = bgmodel.call(xb, { targets: yb });
+      return lossVec.mean();    // <-- scalar
+    }, /* returnCost */ true);
+
+    // log every so often
+    if (i % 500 === 0) {
+      console.log(`Iteration ${i}: loss = ${lossScalar.dataSync()[0].toFixed(4)}`);
+    }
+
+    // dispose the scalar loss
+    lossScalar.dispose();
+  }); 
+}
+
+// decode and print results
+const cont = tf.zeros([1, 1], "int32");
+const batcharr = bgmodel.generate(cont, 200).arraySync()[0];
+console.log(decode(batcharr));
+
+
+
+
