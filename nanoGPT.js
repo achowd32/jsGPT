@@ -6,8 +6,10 @@ import * as fs from 'fs';
 
 // hyperparameters
 const BATCH_SIZE = 32;
-const BLOCK_SIZE = 32;
+const BLOCK_SIZE = 8;
 const MAX_ITERS = 10000;
+const N_EMBD = 32;
+const HEAD_SIZE = 16;
 
 // read in data file
 const dataStr = fs.readFileSync('data.txt').toString();
@@ -62,27 +64,123 @@ function getBatch(split){
   return {x: xVal, y: yVal};
 }
 
+
+// ------------------- MODEL DEFINITIONS ------------------------
+class Head extends tf.layers.Layer{
+  constructor(){
+    super({});
+    this.vocabSize = vocabSizeVal;
+    this.nEmbd = N_EMBD;
+    this.headSize = HEAD_SIZE;
+    this.blockSize = BLOCK_SIZE;
+    this.built = false;
+
+    const ones = tf.ones([this.blockSize, this.blockSize]);
+    this.tril = tf.linalg.bandPart(ones, -1, 0);
+  }
+
+  build(){
+    // key layer
+    this.key = tf.layers.dense({
+      inputDim: this.nEmbd,
+      units: this.vocabSize, 
+      useBias: false,
+    });
+    
+    // query layer
+    this.query = tf.layers.dense({
+      inputDim: this.nEmbd,
+      units: this.vocabSize, 
+      useBias: false,
+    });
+
+    // value layer
+    this.value = tf.layers.dense({
+      inputDim: this.nEmbd,
+      units: this.vocabSize,
+      useBias: false,
+    });
+  }
+
+  call(x){
+    // get dimensions of input embeddings
+    const [B, T, C] = x.shape;
+
+    // pass embeddings through key and query layers
+    const k = this.key.apply(x); // (B, T, C)
+    const q = this.key.apply(x); // (B, T, C)
+    
+    // compute self attention scores
+    const k_t = tf.transpose(k, [0, 2, 1]); // (B, C, T)
+    let wei = tf.matMul(q, k_t); // (B, T, T)
+    wei = wei.mul(tf.scalar(1 / Math.sqrt(C))); // scale by 1/sqrt(C)
+
+    // create mask
+    const tril = this.tril.slice([0, 0], [T, T]); // (T, T)
+    const mask = tril.equal(0).expandDims(0); // (1, T, T)
+    const negInf = tf.fill(wei.shape, Number.NEGATIVE_INFINITY);
+
+    // apply mask
+    wei = tf.where(mask, negInf, wei); // where mask is true, set -inf
+
+    // perform weighted aggregation of the values
+    const v = this.value.apply(x); (B, T, C)
+    const out = tf.matMul(wei, v);
+    return out;
+  }
+
+  getClassName() { return 'Head'; }
+}
+const testHead = new Head();
+testHead.build();
+
 // define bigram model
 class BigramLanguageModel extends tf.layers.Layer {
-  constructor(vocabSize){
+  constructor(){
     super({});
-    this.tokenEmbeddingTable = null;
-    this.vocabSize = vocabSize;
+    this.vocabSize = vocabSizeVal;
+    this.nEmbd = N_EMBD;
+    this.blockSize = BLOCK_SIZE;
     this.built = false;
   }
 
   build(){
+    // build token embedding table
     this.tokenEmbeddingTable = tf.layers.embedding({
       inputDim: this.vocabSize,
-      outputDim: this.vocabSize,
+      outputDim: this.nEmbd,
     });
-    this.tokenEmbeddingTable.build([null, BLOCK_SIZE]);
+    this.tokenEmbeddingTable.build([null, this.blockSize]);
+
+    // build position embedding table
+    this.positionEmbeddingTable = tf.layers.embedding({
+      inputDim: this.blockSize,
+      outputDim: this.nEmbd,
+    });
+    this.positionEmbeddingTable.build([null, this.blockSize]);
+
+    // build linear layer
+    this.lmHead = tf.layers.dense({
+      units: this.vocabSize, // output dimension
+      inputDim: this.nEmbd,
+    });
+
     this.built = true;
   }
 
   call(inputs){
-    // get raw logits tensor from embedding table
-    const logits = this.tokenEmbeddingTable.apply(inputs);
+    // get input shape
+    const shape = inputs.shape;
+    const B = shape[0];
+    const T = shape[1];
+    // get raw logits tensor from embedding tables
+    const tokEmbd = this.tokenEmbeddingTable.apply(inputs); // (B, T, nEmbd)
+    const posEmbd = this.positionEmbeddingTable.apply(
+      tf.range(0, T, 1, "int32")); // (T, nEmbd)
+    const posEmbdExpanded = posEmbd.expandDims(0); // (1, T, nEmbd)
+    
+    const embdSum = tokEmbd.add(posEmbdExpanded); // (B, T, nEmbd)
+    const logits = this.lmHead.apply(embdSum); // (B, T, vocabSize)
     return logits;
   }
   
@@ -104,17 +202,19 @@ class BigramLanguageModel extends tf.layers.Layer {
 
   generate(context, maxTokens){
     for(let i = 0; i < maxTokens; i++){
+      // crop context to the last block size tokens
+      const minTimeStep = Math.max(context.shape[1] - 8, 0);
+      const indSlice = tf.range(minTimeStep, context.shape[1], 1, "int32")
+      const croppedContext = tf.gather(context, indSlice, 1); 
+
       // get predictions
-      const logits = this.apply(context);
+      const logits = this.apply(croppedContext);
 
       // get last time step
       const last = tf.gather(logits, logits.shape[1] - 1, 1);
 
-      // otherwise evens the resulting probabilities out and gives poor output
-      const scaledLast = last.mul(tf.scalar(3)); 
-
       // sample from distribution
-      const next = tf.multinomial(scaledLast, 1);
+      const next = tf.multinomial(last, 1);
 
       // append to running sequence
       const concatLayer = tf.layers.concatenate();
@@ -126,8 +226,13 @@ class BigramLanguageModel extends tf.layers.Layer {
 
   getClassName() { return 'BigramLanguageModel'; }
 }
+
+
+// ------------------------- TRAINING LOOP -----------------------------
+
+
 // define model and optimizer
-const bgmodel = new BigramLanguageModel(vocabSizeVal);
+const bgmodel = new BigramLanguageModel();
 const optimizer = tf.train.adam(0.0001);
 bgmodel.build();
 
@@ -154,4 +259,4 @@ optimizer.dispose();
 const cont = tf.zeros([1, 1], "int32");
 const batcharr = bgmodel.generate(cont, 200).arraySync()[0];
 console.log(decode(batcharr));
-console.log(bgmodel.getWeights());
+//console.log(bgmodel.getWeights());
