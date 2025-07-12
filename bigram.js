@@ -154,4 +154,3 @@ optimizer.dispose();
 const cont = tf.zeros([1, 1], "int32");
 const batcharr = bgmodel.generate(cont, 200).arraySync()[0];
 console.log(decode(batcharr));
-console.log(bgmodel.getWeights());

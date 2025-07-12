@@ -83,21 +83,21 @@ class Head extends tf.layers.Layer{
     // key layer
     this.key = tf.layers.dense({
       inputDim: this.nEmbd,
-      units: this.vocabSize, 
+      units: this.headSize, 
       useBias: false,
     });
     
     // query layer
     this.query = tf.layers.dense({
       inputDim: this.nEmbd,
-      units: this.vocabSize, 
+      units: this.headSize, 
       useBias: false,
     });
 
     // value layer
     this.value = tf.layers.dense({
       inputDim: this.nEmbd,
-      units: this.vocabSize,
+      units: this.headSize,
       useBias: false,
     });
   }
@@ -108,7 +108,7 @@ class Head extends tf.layers.Layer{
 
     // pass embeddings through key and query layers
     const k = this.key.apply(x); // (B, T, C)
-    const q = this.key.apply(x); // (B, T, C)
+    const q = this.query.apply(x); // (B, T, C)
     
     // compute self attention scores
     const k_t = tf.transpose(k, [0, 2, 1]); // (B, C, T)
@@ -131,8 +131,6 @@ class Head extends tf.layers.Layer{
 
   getClassName() { return 'Head'; }
 }
-const testHead = new Head();
-testHead.build();
 
 // define bigram model
 class BigramLanguageModel extends tf.layers.Layer {
@@ -165,6 +163,10 @@ class BigramLanguageModel extends tf.layers.Layer {
       inputDim: this.nEmbd,
     });
 
+    // single head of self-attention
+    this.saHead = new Head();
+    this.saHead.build();
+
     this.built = true;
   }
 
@@ -180,6 +182,7 @@ class BigramLanguageModel extends tf.layers.Layer {
     const posEmbdExpanded = posEmbd.expandDims(0); // (1, T, nEmbd)
     
     const embdSum = tokEmbd.add(posEmbdExpanded); // (B, T, nEmbd)
+    // const saEmbd = this.saHead.apply(embdSum);
     const logits = this.lmHead.apply(embdSum); // (B, T, vocabSize)
     return logits;
   }
@@ -203,9 +206,9 @@ class BigramLanguageModel extends tf.layers.Layer {
   generate(context, maxTokens){
     for(let i = 0; i < maxTokens; i++){
       // crop context to the last block size tokens
-      const minTimeStep = Math.max(context.shape[1] - 8, 0);
-      const indSlice = tf.range(minTimeStep, context.shape[1], 1, "int32")
-      const croppedContext = tf.gather(context, indSlice, 1); 
+      const start = Math.max(context.shape[1] - 8, 0);
+      const sliceSize = Math.min(context.shape[1], this.blockSize);
+      const croppedContext = context.slice([0, start], [-1, sliceSize]); 
 
       // get predictions
       const logits = this.apply(croppedContext);
@@ -217,8 +220,7 @@ class BigramLanguageModel extends tf.layers.Layer {
       const next = tf.multinomial(last, 1);
 
       // append to running sequence
-      const concatLayer = tf.layers.concatenate();
-      context = concatLayer.apply([context, next]);
+      context = tf.concat([context, next], 1);
     }
 
     return context;
