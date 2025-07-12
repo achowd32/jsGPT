@@ -8,4 +8,4 @@ A basic implementation of NanoGPT written in TensorflowJS. Work in progress.
 4. To hopefully integrate this into a web project and practice a little web development.
 
 ## References
-This project is a reimplementation of NanoGPT, outlined by Andrej Karpathy in this [vide](https://youtu.be/kCc8FmEb1nY?si=1riNNp8rxrVCGeZs).
+This project is a reimplementation of NanoGPT, outlined by Andrej Karpathy in this [video](https://youtu.be/kCc8FmEb1nY?si=1riNNp8rxrVCGeZs).
