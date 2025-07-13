@@ -7,7 +7,7 @@ import * as fs from 'fs';
 // hyperparameters
 const BATCH_SIZE = 32;
 const BLOCK_SIZE = 8;
-const MAX_ITERS = 1000;
+const MAX_ITERS = 10000;
 const N_EMBD = 32;
 const HEAD_SIZE = 16;
 const LEARNING_RATE = 0.001;
@@ -74,7 +74,6 @@ class Head extends tf.layers.Layer{
     this.headSize = headSize;
     this.nEmbd = N_EMBD;
     this.blockSize = BLOCK_SIZE;
-    this.built = false;
 
     // create mask template to be applied after computing self attention scores
     const ones = tf.ones([this.blockSize, this.blockSize]);
@@ -102,6 +101,8 @@ class Head extends tf.layers.Layer{
       units: this.headSize,
       useBias: false,
     });
+
+    super.build();
   }
 
   call(x){
@@ -144,17 +145,17 @@ class MultiHeadAttention extends tf.layers.Layer {
     this.headSize = headSize;
     this.nEmbd = N_EMBD;
     this.blockSize = BLOCK_SIZE;
-    this.built = false;
 
     // instantiate heads
     this.heads = Array.from({length: numHeads},
       () => new Head(this.headSize));
   }
 
-  build(inputShape) {
+  build() {
     // forward the build call to each head
-    this.heads.forEach(head => head.build(inputShape));
-    this.built = true;
+    this.heads.forEach(head => head.build());
+
+    super.build();
   }
 
   call(x) {
@@ -168,6 +169,7 @@ class MultiHeadAttention extends tf.layers.Layer {
   getClassName() { return 'MultiHeadAttention'; }
 }
 
+// define FeedForward layer
 class FeedForward extends tf.layers.Layer {
   constructor(nEmbd){
     super({});
@@ -180,6 +182,7 @@ class FeedForward extends tf.layers.Layer {
       units: this.nEmbd,
       activation: 'relu',
     });
+    super.build();
   }
   
   call(inputs){
@@ -189,6 +192,34 @@ class FeedForward extends tf.layers.Layer {
   getClassName(){ return 'FeedForward'; }
 }
 
+// define Transformer block
+class Block extends tf.layers.Layer{
+  constructor(nEmbd, nHead){
+    super({});
+    this.nEmbd = nEmbd;
+    this.nHead = nHead;
+    this.headSize = Math.floor(nEmbd / nHead);
+  }
+
+  build(){
+    // create self attention layer
+    this.sa = new MultiHeadAttention(this.nHead, this.headSize);
+
+    // create feed forward layer
+    this.ffwd = new FeedForward(this.nEmbd);
+
+    super.build();
+  }
+
+  call(input){
+    let out = this.sa.apply(input);
+    out = this.ffwd.apply(out);
+    return out;
+  }
+  
+  getClassName(){ return 'Block'; }
+}
+
 // define GPT language model
 class GPTLanguageModel extends tf.layers.Layer {
   constructor(){
@@ -196,7 +227,6 @@ class GPTLanguageModel extends tf.layers.Layer {
     this.vocabSize = vocabSizeVal;
     this.nEmbd = N_EMBD;
     this.blockSize = BLOCK_SIZE;
-    this.built = false;
   }
 
   build(){
@@ -214,13 +244,9 @@ class GPTLanguageModel extends tf.layers.Layer {
     });
     this.positionEmbeddingTable.build([null, this.blockSize]);
 
-    // multiple heads of self-attention
-    this.saHeads = new MultiHeadAttention(4, this.nEmbd / 4); // FIX FLOOR DIV
-    this.saHeads.build();
-
-    // feed forward layer
-    this.ffwd = new FeedForward(this.nEmbd);
-    this.ffwd.build();
+    // single transformer block
+    this.block = new Block(this.nEmbd, 4);
+    this.block.build();
 
     // build linear layer
     this.lmHead = tf.layers.dense({
@@ -228,7 +254,7 @@ class GPTLanguageModel extends tf.layers.Layer {
       units: this.vocabSize,
     });
 
-    this.built = true;
+    super.build();
   }
 
   call(inputs){ // FIX (CHECK) DIMENSIONS
@@ -241,9 +267,8 @@ class GPTLanguageModel extends tf.layers.Layer {
       tf.range(0, T, 1, "int32")).expandDims(0); // (1, T, nEmbd)
     
     const embdSum = tokEmbd.add(posEmbd); // (B, T, nEmbd)
-    const saEmbd = this.saHeads.apply(embdSum); // (B, T, nEmbd)
-    const ffwdEmbd = this.ffwd.apply(saEmbd); // (B, T, nEmbd)
-    const logits = this.lmHead.apply(ffwdEmbd); // (B, T, vocabSize)
+    const blockEmbd = this.block.apply(embdSum); // (B, T, nEmbd)
+    const logits = this.lmHead.apply(blockEmbd); // (B, T, vocabSize)
     return logits;
   }
   
