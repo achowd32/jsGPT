@@ -157,16 +157,37 @@ class MultiHeadAttention extends tf.layers.Layer {
   }
 
   call(x) {
-    // x is [batch, time, nEmbd]
     // apply each head in parallel
     const headOuts = this.heads.map(head => head.apply(x));  
-    // each headOuts[i] is [batch, time, nEmbd] (or headSize if you didn’t re-project)
-    // concat them along the feature axis (axis=2)
+    // concat each headOut value along the feature axis 
     return tf.concat(headOuts, 2);
   }
 
   getClassName() {
     return 'MultiHeadAttention';
+  }
+}
+
+class FeedForward extends tf.layers.Layer {
+  constructor(nEmbd){
+    super({});
+    this.nEmbd = nEmbd;
+  }
+
+  build(){
+    this.ff = tf.layers.dense({
+      inputDim: this.nEmbd,
+      units: this.nEmbd,
+      activation: 'relu',
+    });
+  }
+  
+  call(inputs){
+    return this.ff.apply(inputs);
+  }
+
+  getClassName(){
+    return 'FeedForward';
   }
 }
 
@@ -195,15 +216,19 @@ class GPTLanguageModel extends tf.layers.Layer {
     });
     this.positionEmbeddingTable.build([null, this.blockSize]);
 
+    // single head of self-attention
+    this.saHeads = new MultiHeadAttention(4, this.nEmbd / 4); // FIX FLOOR DIV
+    this.saHeads.build();
+
+    // feed forward layer
+    this.ffwd = new FeedForward(this.nEmbd);
+    this.ffwd.build();
+
     // build linear layer
     this.lmHead = tf.layers.dense({
       units: this.vocabSize, // output dimension
       inputDim: this.nEmbd,
     });
-
-    // single head of self-attention
-    this.saHeads = new MultiHeadAttention(4, this.nEmbd / 4);
-    this.saHeads.build();
 
     this.built = true;
   }
@@ -221,7 +246,8 @@ class GPTLanguageModel extends tf.layers.Layer {
     
     const embdSum = tokEmbd.add(posEmbdExpanded); // (B, T, nEmbd)
     const saEmbd = this.saHeads.apply(embdSum);
-    const logits = this.lmHead.apply(saEmbd); // (B, T, vocabSize)
+    const ffwdEmbd = this.ffwd.apply(saEmbd);
+    const logits = this.lmHead.apply(ffwdEmbd); // (B, T, vocabSize)
     return logits;
   }
   
