@@ -7,7 +7,7 @@ import * as fs from 'fs';
 // hyperparameters
 const BATCH_SIZE = 32;
 const BLOCK_SIZE = 8;
-const MAX_ITERS = 10000;
+const MAX_ITERS = 1000;
 const N_EMBD = 32;
 const HEAD_SIZE = 16;
 const LEARNING_RATE = 0.001;
@@ -76,6 +76,7 @@ class Head extends tf.layers.Layer{
     this.blockSize = BLOCK_SIZE;
     this.built = false;
 
+    // create mask template to be applied after computing self attention scores
     const ones = tf.ones([this.blockSize, this.blockSize]);
     this.tril = tf.linalg.bandPart(ones, -1, 0);
   }
@@ -84,7 +85,7 @@ class Head extends tf.layers.Layer{
     // key layer
     this.key = tf.layers.dense({
       inputDim: this.nEmbd,
-      units: this.headSize, 
+      units: this.headSize, // 'units' are the output dimensions
       useBias: false,
     });
     
@@ -108,13 +109,13 @@ class Head extends tf.layers.Layer{
     const [B, T, C] = x.shape;
 
     // pass embeddings through key and query layers
-    const k = this.key.apply(x); // (B, T, C)
-    const q = this.query.apply(x); // (B, T, C)
+    const k = this.key.apply(x); // (B, T, headSize)
+    const q = this.query.apply(x); // (B, T, headSize)
     
     // compute self attention scores
-    const k_t = tf.transpose(k, [0, 2, 1]); // (B, C, T)
-    let wei = tf.matMul(q, k_t); // (B, T, T)
-    wei = wei.mul(tf.scalar(1 / Math.sqrt(C))); // scale by 1/sqrt(C)
+    const k_t = tf.transpose(k, [0, 2, 1]); // (B, headSize, T)
+    let wei = tf.matMul(q, k_t); // (B, T, headSize) @ (B, headSize, T) = (B, T, T)
+    wei = wei.mul(tf.scalar(1 / Math.sqrt(this.headSize))); // scale by 1/sqrt(headSize)
 
     // create mask
     const tril = this.tril.slice([0, 0], [T, T]); // (T, T)
@@ -123,11 +124,11 @@ class Head extends tf.layers.Layer{
 
     // apply mask
     wei = tf.where(mask, negInf, wei); // where mask is true, set -inf
-    wei = tf.softmax(wei, /* axis */ -1);
+    wei = tf.softmax(wei, -1); // (B, T, T) 
 
     // perform weighted aggregation of the values
-    const v = this.value.apply(x); (B, T, C)
-    const out = tf.matMul(wei, v);
+    const v = this.value.apply(x); // (B, T, headSize)
+    const out = tf.matMul(wei, v); // (B, T, T) @ (B, T, headSize) = (B, T, headSize)
     return out;
   }
 
@@ -159,13 +160,12 @@ class MultiHeadAttention extends tf.layers.Layer {
   call(x) {
     // apply each head in parallel
     const headOuts = this.heads.map(head => head.apply(x));  
+
     // concat each headOut value along the feature axis 
     return tf.concat(headOuts, 2);
   }
 
-  getClassName() {
-    return 'MultiHeadAttention';
-  }
+  getClassName() { return 'MultiHeadAttention'; }
 }
 
 class FeedForward extends tf.layers.Layer {
@@ -186,9 +186,7 @@ class FeedForward extends tf.layers.Layer {
     return this.ff.apply(inputs);
   }
 
-  getClassName(){
-    return 'FeedForward';
-  }
+  getClassName(){ return 'FeedForward'; }
 }
 
 // define GPT language model
@@ -216,7 +214,7 @@ class GPTLanguageModel extends tf.layers.Layer {
     });
     this.positionEmbeddingTable.build([null, this.blockSize]);
 
-    // single head of self-attention
+    // multiple heads of self-attention
     this.saHeads = new MultiHeadAttention(4, this.nEmbd / 4); // FIX FLOOR DIV
     this.saHeads.build();
 
@@ -226,27 +224,25 @@ class GPTLanguageModel extends tf.layers.Layer {
 
     // build linear layer
     this.lmHead = tf.layers.dense({
-      units: this.vocabSize, // output dimension
       inputDim: this.nEmbd,
+      units: this.vocabSize,
     });
 
     this.built = true;
   }
 
-  call(inputs){
+  call(inputs){ // FIX (CHECK) DIMENSIONS
     // get input shape
-    const shape = inputs.shape;
-    const B = shape[0];
-    const T = shape[1];
+    const [B, T] = inputs.shape;
+
     // get raw logits tensor from embedding tables
     const tokEmbd = this.tokenEmbeddingTable.apply(inputs); // (B, T, nEmbd)
     const posEmbd = this.positionEmbeddingTable.apply(
-      tf.range(0, T, 1, "int32")); // (T, nEmbd)
-    const posEmbdExpanded = posEmbd.expandDims(0); // (1, T, nEmbd)
+      tf.range(0, T, 1, "int32")).expandDims(0); // (1, T, nEmbd)
     
-    const embdSum = tokEmbd.add(posEmbdExpanded); // (B, T, nEmbd)
-    const saEmbd = this.saHeads.apply(embdSum);
-    const ffwdEmbd = this.ffwd.apply(saEmbd);
+    const embdSum = tokEmbd.add(posEmbd); // (B, T, nEmbd)
+    const saEmbd = this.saHeads.apply(embdSum); // (B, T, nEmbd)
+    const ffwdEmbd = this.ffwd.apply(saEmbd); // (B, T, nEmbd)
     const logits = this.lmHead.apply(ffwdEmbd); // (B, T, vocabSize)
     return logits;
   }
