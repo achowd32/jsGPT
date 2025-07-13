@@ -10,6 +10,7 @@ const BLOCK_SIZE = 8;
 const MAX_ITERS = 10000;
 const N_EMBD = 32;
 const HEAD_SIZE = 16;
+const LEARNING_RATE = 0.001;
 
 // read in data file
 const dataStr = fs.readFileSync('data.txt').toString();
@@ -67,11 +68,11 @@ function getBatch(split){
 
 // ------------------- MODEL DEFINITIONS ------------------------
 class Head extends tf.layers.Layer{
-  constructor(){
+  constructor(headSize){
     super({});
     this.vocabSize = vocabSizeVal;
+    this.headSize = headSize;
     this.nEmbd = N_EMBD;
-    this.headSize = HEAD_SIZE;
     this.blockSize = BLOCK_SIZE;
     this.built = false;
 
@@ -122,6 +123,7 @@ class Head extends tf.layers.Layer{
 
     // apply mask
     wei = tf.where(mask, negInf, wei); // where mask is true, set -inf
+    wei = tf.softmax(wei, /* axis */ -1);
 
     // perform weighted aggregation of the values
     const v = this.value.apply(x); (B, T, C)
@@ -132,8 +134,8 @@ class Head extends tf.layers.Layer{
   getClassName() { return 'Head'; }
 }
 
-// define bigram model
-class BigramLanguageModel extends tf.layers.Layer {
+// define GPT language model
+class GPTLanguageModel extends tf.layers.Layer {
   constructor(){
     super({});
     this.vocabSize = vocabSizeVal;
@@ -164,7 +166,7 @@ class BigramLanguageModel extends tf.layers.Layer {
     });
 
     // single head of self-attention
-    this.saHead = new Head();
+    this.saHead = new Head(this.nEmbd);
     this.saHead.build();
 
     this.built = true;
@@ -182,8 +184,8 @@ class BigramLanguageModel extends tf.layers.Layer {
     const posEmbdExpanded = posEmbd.expandDims(0); // (1, T, nEmbd)
     
     const embdSum = tokEmbd.add(posEmbdExpanded); // (B, T, nEmbd)
-    // const saEmbd = this.saHead.apply(embdSum);
-    const logits = this.lmHead.apply(embdSum); // (B, T, vocabSize)
+    const saEmbd = this.saHead.apply(embdSum);
+    const logits = this.lmHead.apply(saEmbd); // (B, T, vocabSize)
     return logits;
   }
   
@@ -226,7 +228,7 @@ class BigramLanguageModel extends tf.layers.Layer {
     return context;
   } 
 
-  getClassName() { return 'BigramLanguageModel'; }
+  getClassName() { return 'GPTLanguageModel'; }
 }
 
 
@@ -234,9 +236,9 @@ class BigramLanguageModel extends tf.layers.Layer {
 
 
 // define model and optimizer
-const bgmodel = new BigramLanguageModel();
-const optimizer = tf.train.adam(0.0001);
-bgmodel.build();
+const gptmodel = new GPTLanguageModel();
+const optimizer = tf.train.adam(LEARNING_RATE);
+gptmodel.build();
 
 // training loop
 for(let i = 0; i < MAX_ITERS; i++){
@@ -247,7 +249,8 @@ for(let i = 0; i < MAX_ITERS; i++){
   
   // get loss
   optimizer.minimize(() => {
-    const loss = bgmodel.loss(xb, yb);
+    const loss = gptmodel.loss(xb, yb);
+    if(i % 500 == 0) { loss.print(); }
     return loss;
   });
 
@@ -259,6 +262,6 @@ optimizer.dispose();
 
 // decode and print results
 const cont = tf.zeros([1, 1], "int32");
-const batcharr = bgmodel.generate(cont, 200).arraySync()[0];
+const batcharr = gptmodel.generate(cont, 200).arraySync()[0];
 console.log(decode(batcharr));
-//console.log(bgmodel.getWeights());
+//console.log(gptmodel.getWeights());
