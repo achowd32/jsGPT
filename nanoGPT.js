@@ -134,6 +134,42 @@ class Head extends tf.layers.Layer{
   getClassName() { return 'Head'; }
 }
 
+// define MultiHeadAttention
+class MultiHeadAttention extends tf.layers.Layer {
+  constructor(numHeads, headSize) {
+    super({});
+    this.vocabSize = vocabSizeVal;
+    this.numHeads = numHeads;
+    this.headSize = headSize;
+    this.nEmbd = N_EMBD;
+    this.blockSize = BLOCK_SIZE;
+    this.built = false;
+
+    // instantiate heads
+    this.heads = Array.from({length: numHeads},
+      () => new Head(this.headSize));
+  }
+
+  build(inputShape) {
+    // forward the build call to each head
+    this.heads.forEach(head => head.build(inputShape));
+    this.built = true;
+  }
+
+  call(x) {
+    // x is [batch, time, nEmbd]
+    // apply each head in parallel
+    const headOuts = this.heads.map(head => head.apply(x));  
+    // each headOuts[i] is [batch, time, nEmbd] (or headSize if you didn’t re-project)
+    // concat them along the feature axis (axis=2)
+    return tf.concat(headOuts, 2);
+  }
+
+  getClassName() {
+    return 'MultiHeadAttention';
+  }
+}
+
 // define GPT language model
 class GPTLanguageModel extends tf.layers.Layer {
   constructor(){
@@ -166,8 +202,8 @@ class GPTLanguageModel extends tf.layers.Layer {
     });
 
     // single head of self-attention
-    this.saHead = new Head(this.nEmbd);
-    this.saHead.build();
+    this.saHeads = new MultiHeadAttention(4, this.nEmbd / 4);
+    this.saHeads.build();
 
     this.built = true;
   }
@@ -184,7 +220,7 @@ class GPTLanguageModel extends tf.layers.Layer {
     const posEmbdExpanded = posEmbd.expandDims(0); // (1, T, nEmbd)
     
     const embdSum = tokEmbd.add(posEmbdExpanded); // (B, T, nEmbd)
-    const saEmbd = this.saHead.apply(embdSum);
+    const saEmbd = this.saHeads.apply(embdSum);
     const logits = this.lmHead.apply(saEmbd); // (B, T, vocabSize)
     return logits;
   }
@@ -262,6 +298,6 @@ optimizer.dispose();
 
 // decode and print results
 const cont = tf.zeros([1, 1], "int32");
-const batcharr = gptmodel.generate(cont, 200).arraySync()[0];
+const batcharr = gptmodel.generate(cont, 500).arraySync()[0];
 console.log(decode(batcharr));
 //console.log(gptmodel.getWeights());
