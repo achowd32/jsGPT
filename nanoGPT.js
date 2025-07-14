@@ -6,11 +6,12 @@ import * as fs from 'fs';
 
 // hyperparameters
 const BATCH_SIZE = 32;
-const BLOCK_SIZE = 8;
-const MAX_ITERS = 10000;
+const BLOCK_SIZE = 64;
+const MAX_ITERS = 200;
 const N_EMBD = 32;
 const HEAD_SIZE = 16;
 const LEARNING_RATE = 0.001;
+const EVAL_ITERS = 50;
 
 // read in data file
 const dataStr = fs.readFileSync('data.txt').toString();
@@ -227,13 +228,17 @@ class Block extends tf.layers.Layer{
     // create feed forward layer
     this.ffwd = new FeedForward(this.nEmbd);
 
+    // create layerNormalization layers
+    this.ln1 = tf.layers.layerNormalization();
+    this.ln2 = tf.layers.layerNormalization();
+
     super.build();
   }
 
   call(input){
     // perform computations with residual
-    let out = input.add(this.sa.apply(input)); // input + sa(input)
-    out = out.add(this.ffwd.apply(out)); // out + ffwd(out)
+    let out = input.add(this.sa.apply(this.ln1.apply(input))); // input + sa(ln1(input))
+    out = out.add(this.ffwd.apply(this.ln2.apply(out))); // out + ffwd(ln2(out))
     return out;
   }
   
@@ -272,6 +277,9 @@ class GPTLanguageModel extends tf.layers.Layer {
       this.blockArr.push(blk);
     }
 
+    // build final layernorm
+    this.ln = tf.layers.layerNormalization();
+
     // build linear layer
     this.lmHead = tf.layers.dense({
       inputDim: this.nEmbd,
@@ -296,6 +304,7 @@ class GPTLanguageModel extends tf.layers.Layer {
     for(const block of this.blockArr){
       blockEmbd = block.apply(blockEmbd);
     }
+    blockEmbd = this.ln.apply(blockEmbd);
 
     const logits = this.lmHead.apply(blockEmbd); // (B, T, vocabSize)
     return logits;
@@ -320,7 +329,7 @@ class GPTLanguageModel extends tf.layers.Layer {
   generate(context, maxTokens){
     for(let i = 0; i < maxTokens; i++){
       // crop context to the last block size tokens
-      const start = Math.max(context.shape[1] - 8, 0);
+      const start = Math.max(context.shape[1] - this.blockSize, 0);
       const sliceSize = Math.min(context.shape[1], this.blockSize);
       const croppedContext = context.slice([0, start], [-1, sliceSize]); 
 
@@ -362,7 +371,7 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = gptmodel.loss(xb, yb);
-    if(i % 500 == 0) { loss.print(); }
+    if(i % EVAL_ITERS == 0) { loss.print(); }
     return loss;
   });
 
