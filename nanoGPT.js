@@ -155,15 +155,26 @@ class MultiHeadAttention extends tf.layers.Layer {
     // forward the build call to each head
     this.heads.forEach(head => head.build());
 
+    // projection layer
+    this.proj = tf.layers.dense({
+      inputDim: this.nEmbd,
+      units: this.nEmbd,
+    });
+
     super.build();
   }
 
   call(x) {
     // apply each head in parallel
-    const headOuts = this.heads.map(head => head.apply(x));  
+    let out = this.heads.map(head => head.apply(x));  
 
     // concat each headOut value along the feature axis 
-    return tf.concat(headOuts, 2);
+    out = tf.concat(out, 2);
+
+    // apply projection layer
+    out = this.proj.apply(out);
+
+    return out;
   }
 
   getClassName() { return 'MultiHeadAttention'; }
@@ -177,16 +188,24 @@ class FeedForward extends tf.layers.Layer {
   }
 
   build(){
-    this.ff = tf.layers.dense({
+    this.expand = tf.layers.dense({
       inputDim: this.nEmbd,
-      units: this.nEmbd,
+      units: 4 * this.nEmbd,
       activation: 'relu',
     });
+
+    this.compress = tf.layers.dense({
+      inputDim: 4 * this.nEmbd,
+      units: this.nEmbd,
+    });
+
     super.build();
   }
   
   call(inputs){
-    return this.ff.apply(inputs);
+    let out = this.expand.apply(inputs);
+    out = this.compress.apply(out);
+    return out;
   }
 
   getClassName(){ return 'FeedForward'; }
@@ -212,8 +231,9 @@ class Block extends tf.layers.Layer{
   }
 
   call(input){
-    let out = this.sa.apply(input);
-    out = this.ffwd.apply(out);
+    // perform computations with residual
+    let out = input.add(this.sa.apply(input)); // input + sa(input)
+    out = out.add(this.ffwd.apply(out)); // out + ffwd(out)
     return out;
   }
   
@@ -244,9 +264,13 @@ class GPTLanguageModel extends tf.layers.Layer {
     });
     this.positionEmbeddingTable.build([null, this.blockSize]);
 
-    // single transformer block
-    this.block = new Block(this.nEmbd, 4);
-    this.block.build();
+    // array of transformer blocks
+    this.blockArr = [];
+    for(let i  = 0; i < 3; i++){
+      const blk = new Block(this.nEmbd, 4);
+      blk.build();
+      this.blockArr.push(blk);
+    }
 
     // build linear layer
     this.lmHead = tf.layers.dense({
@@ -261,13 +285,18 @@ class GPTLanguageModel extends tf.layers.Layer {
     // get input shape
     const [B, T] = inputs.shape;
 
-    // get raw logits tensor from embedding tables
+    // get embeddings as a sum of token and position embeddings
     const tokEmbd = this.tokenEmbeddingTable.apply(inputs); // (B, T, nEmbd)
     const posEmbd = this.positionEmbeddingTable.apply(
       tf.range(0, T, 1, "int32")).expandDims(0); // (1, T, nEmbd)
-    
     const embdSum = tokEmbd.add(posEmbd); // (B, T, nEmbd)
-    const blockEmbd = this.block.apply(embdSum); // (B, T, nEmbd)
+
+    // apply all transformer blocks sequentially
+    let blockEmbd = embdSum; // (B, T, nEmbd)
+    for(const block of this.blockArr){
+      blockEmbd = block.apply(blockEmbd);
+    }
+
     const logits = this.lmHead.apply(blockEmbd); // (B, T, vocabSize)
     return logits;
   }
