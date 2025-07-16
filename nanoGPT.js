@@ -94,6 +94,7 @@ class Head extends tf.layers.Layer{
     this.headSize = headSize;
     this.nEmbd = N_EMBD;
     this.blockSize = BLOCK_SIZE;
+    this.dropRate = DROPOUT;
 
     // create mask template to be applied after computing self attention scores
     const ones = tf.ones([this.blockSize, this.blockSize]);
@@ -122,6 +123,9 @@ class Head extends tf.layers.Layer{
       useBias: false,
     });
 
+    // dropout layer
+    this.dropout = tf.layers.dropout({rate: this.dropRate});
+
     super.build();
   }
 
@@ -147,6 +151,9 @@ class Head extends tf.layers.Layer{
     wei = tf.where(mask, negInf, wei); // where mask is true, set -inf
     wei = tf.softmax(wei, -1); // (B, T, T) 
 
+    // apply dropout
+    wei = this.dropout.apply(wei);
+
     // perform weighted aggregation of the values
     const v = this.value.apply(x); // (B, T, headSize)
     const out = tf.matMul(wei, v); // (B, T, T) @ (B, T, headSize) = (B, T, headSize)
@@ -165,6 +172,7 @@ class MultiHeadAttention extends tf.layers.Layer {
     this.headSize = headSize;
     this.nEmbd = N_EMBD;
     this.blockSize = BLOCK_SIZE;
+    this.dropRate = DROPOUT;
 
     // instantiate heads
     this.heads = Array.from({length: numHeads},
@@ -181,6 +189,9 @@ class MultiHeadAttention extends tf.layers.Layer {
       units: this.nEmbd,
     });
 
+    // dropout layer
+    this.dropout = tf.layers.dropout({rate: this.dropRate});
+
     super.build();
   }
 
@@ -194,6 +205,9 @@ class MultiHeadAttention extends tf.layers.Layer {
     // apply projection layer
     out = this.proj.apply(out);
 
+    // apply dropout
+    out = this.dropout.apply(out);
+
     return out;
   }
 
@@ -204,7 +218,9 @@ class MultiHeadAttention extends tf.layers.Layer {
 class FeedForward extends tf.layers.Layer {
   constructor(nEmbd){
     super({});
+    // dropout layer
     this.nEmbd = nEmbd;
+    this.dropRate = DROPOUT;
   }
 
   build(){
@@ -219,12 +235,15 @@ class FeedForward extends tf.layers.Layer {
       units: this.nEmbd,
     });
 
+    this.dropout = tf.layers.dropout({rate: this.dropRate});
+
     super.build();
   }
   
   call(inputs){
     let out = this.expand.apply(inputs);
     out = this.compress.apply(out);
+    out = this.dropout.apply(out);
     return out;
   }
 
@@ -248,10 +267,10 @@ class Block extends tf.layers.Layer{
     this.ffwd = new FeedForward(this.nEmbd);
 
     // create layerNorm layers, or use the Identity layer to avoid layerNorm
-    // this.ln1 = tf.layers.layerNormalization();
-    // this.ln2 = tf.layers.layerNormalization();
-    this.ln1 = new Identity();
-    this.ln2 = new Identity();
+    this.ln1 = tf.layers.layerNormalization();
+    this.ln2 = tf.layers.layerNormalization();
+    //this.ln1 = new Identity();
+    //this.ln2 = new Identity();
 
     super.build();
   }
