@@ -5,13 +5,16 @@ import * as tf from '@tensorflow/tfjs';
 import * as fs from 'fs';
 
 // hyperparameters
-const BATCH_SIZE = 32;
+const BATCH_SIZE = 12;
 const BLOCK_SIZE = 64;
-const MAX_ITERS = 200;
-const N_EMBD = 32;
+const MAX_ITERS = 2000;
+const N_EMBD = 128;
+const N_LAYER = 4;
+const N_HEAD = 4;
 const HEAD_SIZE = 16;
 const LEARNING_RATE = 0.001;
-const EVAL_ITERS = 50;
+const EVAL_ITERS = 500;
+const DROPOUT = 0.0;
 
 // read in data file
 const dataStr = fs.readFileSync('data.txt').toString();
@@ -68,6 +71,22 @@ function getBatch(split){
 
 
 // ------------------- MODEL DEFINITIONS ------------------------
+
+// define Identity class
+// can be used to replace the time intensive layerNorm operation
+class Identity extends tf.layers.Layer{
+  constructor(){
+    super({});
+  }
+
+  call(input){
+    return input
+  }
+
+  getClassName(){ return 'Identity'; }
+}
+
+// define Head: one single head of self attention
 class Head extends tf.layers.Layer{
   constructor(headSize){
     super({});
@@ -228,9 +247,11 @@ class Block extends tf.layers.Layer{
     // create feed forward layer
     this.ffwd = new FeedForward(this.nEmbd);
 
-    // create layerNormalization layers
-    this.ln1 = tf.layers.layerNormalization();
-    this.ln2 = tf.layers.layerNormalization();
+    // create layerNorm layers, or use the Identity layer to avoid layerNorm
+    // this.ln1 = tf.layers.layerNormalization();
+    // this.ln2 = tf.layers.layerNormalization();
+    this.ln1 = new Identity();
+    this.ln2 = new Identity();
 
     super.build();
   }
@@ -250,7 +271,9 @@ class GPTLanguageModel extends tf.layers.Layer {
   constructor(){
     super({});
     this.vocabSize = vocabSizeVal;
+    this.nLayer = N_LAYER;
     this.nEmbd = N_EMBD;
+    this.nHead = N_HEAD;
     this.blockSize = BLOCK_SIZE;
   }
 
@@ -271,8 +294,8 @@ class GPTLanguageModel extends tf.layers.Layer {
 
     // array of transformer blocks
     this.blockArr = [];
-    for(let i  = 0; i < 3; i++){
-      const blk = new Block(this.nEmbd, 4);
+    for(let i  = 0; i < this.nLayer; i++){
+      const blk = new Block(this.nEmbd, this.nHead);
       blk.build();
       this.blockArr.push(blk);
     }
@@ -328,22 +351,24 @@ class GPTLanguageModel extends tf.layers.Layer {
 
   generate(context, maxTokens){
     for(let i = 0; i < maxTokens; i++){
-      // crop context to the last block size tokens
-      const start = Math.max(context.shape[1] - this.blockSize, 0);
-      const sliceSize = Math.min(context.shape[1], this.blockSize);
-      const croppedContext = context.slice([0, start], [-1, sliceSize]); 
+      context = tf.tidy(() => {
+        // crop context to the last block size tokens
+        const start = Math.max(context.shape[1] - this.blockSize, 0);
+        const sliceSize = Math.min(context.shape[1], this.blockSize);
+        const croppedContext = context.slice([0, start], [-1, sliceSize]); 
 
-      // get predictions
-      const logits = this.apply(croppedContext);
+        // get predictions
+        const logits = this.apply(croppedContext);
 
-      // get last time step
-      const last = tf.gather(logits, logits.shape[1] - 1, 1);
+        // get last time step
+        const last = tf.gather(logits, logits.shape[1] - 1, 1);
 
-      // sample from distribution
-      const next = tf.multinomial(last, 1);
+        // sample from distribution
+        const next = tf.multinomial(last, 1);
 
-      // append to running sequence
-      context = tf.concat([context, next], 1);
+        // append to running sequence
+        return tf.concat([context, next], 1);
+      });
     }
 
     return context;
