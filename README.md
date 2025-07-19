@@ -1,5 +1,15 @@
 # jsGPT
-A basic implementation of NanoGPT written in TensorflowJS. Work in progress.
+A basic implementation of NanoGPT written in TensorflowJS.
+
+## Outline
+I intend to write both a basic bigram model architecture and the full NanoGPT architecture. This is useful for pedagogical purposes, as it is often easier for beginners to try and grasp how the bigram model works (both conceptually and as implemented in TensorflowJS) before moving to NanoGPT.
+
+I also intend to write each architecture as both a TensorflowJS custom layer and a TensorflowJS model; if this project is ever useful to anybody, they can select which API is more suitable to their needs.
+
+So far, the following architectures have been implemented:
+- `layerBigram.js`: the bigram model implemented using the custom layer API.
+- `modelBigram.js`: the bigram model implemented using the model API.
+- `layerGPT.js`: the NanoGPT model implemented using the custom layer API.
 
 ## Purpose
 1. To assist with my assigned research project, which involves creating a pipeline for training LLMs in the shell.

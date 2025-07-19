@@ -7,13 +7,13 @@ import * as fs from 'fs';
 // hyperparameters
 const BATCH_SIZE = 12;
 const BLOCK_SIZE = 64;
-const MAX_ITERS = 2000;
+const MAX_ITERS = 50;
 const N_EMBD = 128;
 const N_LAYER = 4;
 const N_HEAD = 4;
 const HEAD_SIZE = 16;
 const LEARNING_RATE = 0.001;
-const EVAL_ITERS = 500;
+const EVAL_ITERS = 50;
 const DROPOUT = 0.0;
 
 // read in data file
@@ -267,10 +267,10 @@ class Block extends tf.layers.Layer{
     this.ffwd = new FeedForward(this.nEmbd);
 
     // create layerNorm layers, or use the Identity layer to avoid layerNorm
-    this.ln1 = tf.layers.layerNormalization();
-    this.ln2 = tf.layers.layerNormalization();
-    //this.ln1 = new Identity();
-    //this.ln2 = new Identity();
+    // this.ln1 = tf.layers.layerNormalization();
+    // this.ln2 = tf.layers.layerNormalization();
+    this.ln1 = new Identity();
+    this.ln2 = new Identity();
 
     super.build();
   }
@@ -429,4 +429,3 @@ optimizer.dispose();
 const cont = tf.zeros([1, 1], "int32");
 const batcharr = gptmodel.generate(cont, 500).arraySync()[0];
 console.log(decode(batcharr));
-//console.log(gptmodel.getWeights());

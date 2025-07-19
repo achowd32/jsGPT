@@ -68,7 +68,6 @@ class BigramLanguageModel extends tf.layers.Layer {
     super({});
     this.tokenEmbeddingTable = null;
     this.vocabSize = vocabSize;
-    this.built = false;
   }
 
   build(){
@@ -77,7 +76,7 @@ class BigramLanguageModel extends tf.layers.Layer {
       outputDim: this.vocabSize,
     });
     this.tokenEmbeddingTable.build([null, BLOCK_SIZE]);
-    this.built = true;
+    super.build();
   }
 
   call(inputs){
@@ -141,6 +140,7 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = bgmodel.loss(xb, yb);
+    if(i % 1000 == 0){ loss.print(); }
     return loss;
   });
 
