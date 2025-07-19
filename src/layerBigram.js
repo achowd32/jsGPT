@@ -86,6 +86,7 @@ class BigramLanguageModel extends tf.layers.Layer {
   }
   
   loss(inputs, targets){
+    const loss = tf.tidy(() => {
       // get logits
       const logitsT = this.apply(inputs);
 
@@ -97,30 +98,34 @@ class BigramLanguageModel extends tf.layers.Layer {
       const oneHotTargets = tf.oneHot(flatTargets, this.vocabSize);
 
       // calculate and return loss
-      const loss = tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
-      return loss;
+      return tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
+    });
+    return loss;
   }
 
   generate(context, maxTokens){
-    for(let i = 0; i < maxTokens; i++){
-      // get predictions
-      const logits = this.apply(context);
+    const output = tf.tidy(() => {
+      for(let i = 0; i < maxTokens; i++){
+        // get predictions
+        const logits = this.apply(context);
 
-      // get last time step
-      const last = tf.gather(logits, logits.shape[1] - 1, 1);
+        // get last time step
+        const last = tf.gather(logits, logits.shape[1] - 1, 1);
 
-      // otherwise evens the resulting probabilities out and gives poor output
-      const scaledLast = last.mul(tf.scalar(3)); 
+        // otherwise evens the resulting probabilities out and gives poor output
+        const scaledLast = last.mul(tf.scalar(3)); 
 
-      // sample from distribution
-      const next = tf.multinomial(scaledLast, 1);
+        // sample from distribution
+        const next = tf.multinomial(scaledLast, 1);
 
-      // append to running sequence
-      const concatLayer = tf.layers.concatenate();
-      context = concatLayer.apply([context, next]);
-    }
+        // append to running sequence
+        const concatLayer = tf.layers.concatenate();
+        context = concatLayer.apply([context, next]);
+      }
+      return context;
+    });
 
-    return context;
+    return output;
   } 
 
   getClassName() { return 'BigramLanguageModel'; }

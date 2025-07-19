@@ -84,33 +84,41 @@ class BigramLanguageModel {
   }
 
   loss(inputs, targets) {
-    // get logits
-    const logitsT = this.apply(inputs);
-    // flatten logits and targets
-    const flatLogits = logitsT.reshape([-1, this.vocabSize]);
-    const flatTargets = targets.reshape([-1]);
-    // convert targets to one hot vectors
-    const oneHotTargets = tf.oneHot(flatTargets, this.vocabSize);
-    // calculate and return loss
-    const loss = tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
+    const loss = tf.tidy(() => {
+      // get logits
+      const logitsT = this.apply(inputs);
+
+      // flatten logits and targets
+      const flatLogits = logitsT.reshape([-1, this.vocabSize]);
+      const flatTargets = targets.reshape([-1]);
+
+      // convert targets to one hot vectors
+      const oneHotTargets = tf.oneHot(flatTargets, this.vocabSize);
+
+      // calculate and return loss
+      return tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
+    });
     return loss;
   }
 
   generate(context, maxTokens) {
-    for (let i = 0; i < maxTokens; i++) {
-      // get predictions
-      const logits = this.apply(context);
-      // get last time step
-      const last = tf.gather(logits, logits.shape[1] - 1, 1);
-      // scale logits
-      const scaledLast = last.mul(tf.scalar(3));
-      // sample from distribution
-      const next = tf.multinomial(scaledLast, 1);
-      // append to running sequence
-      const concatLayer = tf.layers.concatenate();
-      context = concatLayer.apply([context, next]);
-    }
-    return context;
+    const output = tf.tidy(() => {
+      for (let i = 0; i < maxTokens; i++) {
+        // get predictions
+        const logits = this.apply(context);
+        // get last time step
+        const last = tf.gather(logits, logits.shape[1] - 1, 1);
+        // scale logits
+        const scaledLast = last.mul(tf.scalar(3));
+        // sample from distribution
+        const next = tf.multinomial(scaledLast, 1);
+        // append to running sequence
+        const concatLayer = tf.layers.concatenate();
+        context = concatLayer.apply([context, next]);
+      }
+      return context;
+    });
+    return output;
   }
 
   getWeights() {
@@ -138,7 +146,10 @@ for(let i = 0; i < MAX_ITERS; i++){
   xb.dispose();
   yb.dispose();
 }
+ 
 console.log(bgmodel.getWeights());
+
+// dispose of the optimizer
 optimizer.dispose();
 
 // decode and print results
