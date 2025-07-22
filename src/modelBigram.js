@@ -124,6 +124,14 @@ class BigramLanguageModel {
   getWeights() {
     return this.model.getWeights();
   }
+
+  save(filename){
+    return this.model.save(filename);
+  }
+
+  async load(filename){
+    this.model = await tf.loadLayersModel(filename);
+  }
 }
 // define model and optimizer
 const bgmodel = new BigramLanguageModel(vocabSizeVal);
@@ -147,8 +155,6 @@ for(let i = 0; i < MAX_ITERS; i++){
   yb.dispose();
 }
  
-console.log(bgmodel.getWeights());
-
 // dispose of the optimizer
 optimizer.dispose();
 
