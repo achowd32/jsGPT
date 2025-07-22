@@ -72,18 +72,19 @@ function getBatch(split){
 
 // ------------------- MODEL DEFINITIONS ------------------------
 
-// define Identity class
+// define Identity function that returns a tf.model
 // can be used to replace the time intensive layerNorm operation
-class Identity extends tf.layers.Layer{
-  constructor(){
-    super({});
-  }
+function createIdentity(nEmbd) {
+  const input = tf.input({shape: [null, nEmbd]});
+  // identity function - just return the input as output
+  return tf.model({inputs: input, outputs: input});
+}
 
-  call(input){
-    return input
-  }
-
-  getClassName(){ return 'Identity'; }
+// define LayerNorm function that returns a tf.model
+function createLayerNorm(nEmbd) {
+  const input = tf.input({shape: [null, nEmbd]});
+  const normalized = tf.layers.layerNormalization().apply(input);
+  return tf.model({inputs: input, outputs: normalized});
 }
 
 // define Head: one single head of self attention
@@ -214,40 +215,25 @@ class MultiHeadAttention extends tf.layers.Layer {
   getClassName() { return 'MultiHeadAttention'; }
 }
 
-// define FeedForward layer
-class FeedForward extends tf.layers.Layer {
-  constructor(nEmbd){
-    super({});
-    // dropout layer
-    this.nEmbd = nEmbd;
-    this.dropRate = DROPOUT;
-  }
-
-  build(){
-    this.expand = tf.layers.dense({
-      inputDim: this.nEmbd,
-      units: 4 * this.nEmbd,
-      activation: 'relu',
-    });
-
-    this.compress = tf.layers.dense({
-      inputDim: 4 * this.nEmbd,
-      units: this.nEmbd,
-    });
-
-    this.dropout = tf.layers.dropout({rate: this.dropRate});
-
-    super.build();
-  }
+// define function that returns a FeedForward layer as a tf.model
+function createFeedForward(nEmbd) {
+  const input = tf.input({shape: [null, nEmbd]});
   
-  call(inputs){
-    let out = this.expand.apply(inputs);
-    out = this.compress.apply(out);
-    out = this.dropout.apply(out);
-    return out;
-  }
-
-  getClassName(){ return 'FeedForward'; }
+  // expansion layer with ReLU activation
+  const expanded = tf.layers.dense({
+    units: 4 * nEmbd,
+    activation: 'relu',
+  }).apply(input);
+  
+  // compression layer
+  const compressed = tf.layers.dense({
+    units: nEmbd,
+  }).apply(expanded);
+  
+  // dropout layer
+  const output = tf.layers.dropout({rate: DROPOUT}).apply(compressed);
+  
+  return tf.model({inputs: input, outputs: output});
 }
 
 // define Transformer block
@@ -264,13 +250,13 @@ class Block extends tf.layers.Layer{
     this.sa = new MultiHeadAttention(this.nHead, this.headSize);
 
     // create feed forward layer
-    this.ffwd = new FeedForward(this.nEmbd);
+    this.ffwd = createFeedForward(this.nEmbd);
 
     // create layerNorm layers, or use the Identity layer to avoid layerNorm
-    // this.ln1 = tf.layers.layerNormalization();
-    // this.ln2 = tf.layers.layerNormalization();
-    this.ln1 = new Identity();
-    this.ln2 = new Identity();
+    // this.ln1 = createLayerNorm(this.nEmbd);
+    // this.ln2 = createLayerNorm(this.nEmbd);
+    this.ln1 = createIdentity(this.nEmbd);
+    this.ln2 = createIdentity(this.nEmbd);
 
     super.build();
   }
