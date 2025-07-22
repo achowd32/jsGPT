@@ -7,12 +7,12 @@ import * as fs from 'fs';
 // hyperparameters
 const BATCH_SIZE = 12;
 const BLOCK_SIZE = 64;
-const MAX_ITERS = 50;
+const MAX_ITERS = 200;
 const N_EMBD = 128;
 const N_LAYER = 4;
 const N_HEAD = 4;
 const HEAD_SIZE = 16;
-const LEARNING_RATE = 0.001;
+const LEARNING_RATE = 0.0003;
 const EVAL_ITERS = 50;
 const DROPOUT = 0.0;
 
@@ -68,11 +68,9 @@ function getBatch(split){
   const yVal = tf.stack(yRows);
   return {x: xVal, y: yVal};
 }
-
-
 // ------------------- MODEL DEFINITIONS ------------------------
 
-// define Identity function that returns a tf.model
+// define function that returns Identity layer as a tf.model
 // can be used to replace the time intensive layerNorm operation
 function createIdentity(nEmbd) {
   const input = tf.input({shape: [null, nEmbd]});
@@ -80,88 +78,63 @@ function createIdentity(nEmbd) {
   return tf.model({inputs: input, outputs: input});
 }
 
-// define LayerNorm function that returns a tf.model
+// define function that returns a LayerNorm layer as a tf.model
 function createLayerNorm(nEmbd) {
   const input = tf.input({shape: [null, nEmbd]});
   const normalized = tf.layers.layerNormalization().apply(input);
   return tf.model({inputs: input, outputs: normalized});
 }
 
-// define Head: one single head of self attention
-class Head extends tf.layers.Layer{
-  constructor(headSize){
-    super({});
-    this.vocabSize = vocabSizeVal;
-    this.headSize = headSize;
-    this.nEmbd = N_EMBD;
-    this.blockSize = BLOCK_SIZE;
-    this.dropRate = DROPOUT;
+// define function that returns a Head layer as a tf.model
+function createHead(blockSize, nEmbd, headSize, dropoutRate) {
+  // create symbolic input
+  const input = tf.input({shape: [null, nEmbd], dtype: 'float32'});
 
-    // create mask template to be applied after computing self attention scores
-    const ones = tf.ones([this.blockSize, this.blockSize]);
-    this.tril = tf.linalg.bandPart(ones, -1, 0);
-  }
+  // create key, query, value embeddings; (B, T, headSize)
+  const key   = tf.layers.dense({units: headSize, useBias: false}).apply(input);
+  const query = tf.layers.dense({units: headSize, useBias: false}).apply(input);
+  const value = tf.layers.dense({units: headSize, useBias: false}).apply(input);
 
-  build(){
-    // key layer
-    this.key = tf.layers.dense({
-      inputDim: this.nEmbd,
-      units: this.headSize, // 'units' are the output dimensions
-      useBias: false,
-    });
-    
-    // query layer
-    this.query = tf.layers.dense({
-      inputDim: this.nEmbd,
-      units: this.headSize, 
-      useBias: false,
-    });
+  // compute self attention scores
+  const keyT = tf.layers.permute({dims: [2, 1]}).apply(key); // (B, headSize, T)
+  const scores = tf.layers.dot({axes: [2, 1]}).apply([query, keyT]); // (B, T, headSize) @ (B, headSize, T) = (B, T, T)
 
-    // value layer
-    this.value = tf.layers.dense({
-      inputDim: this.nEmbd,
-      units: this.headSize,
-      useBias: false,
-    });
+  // scale by 1/sqrt(headSize)
+  /*const scaled = tf.layers.activation({
+    activation: x => tf.mul(x, tf.scalar(1/Math.sqrt(headSize)))
+  }).apply(scores);*/
+  
+  // create and apply mask: TODO
+  const weights = tf.layers.activation({activation: 'softmax'}).apply(scores);
 
-    // dropout layer
-    this.dropout = tf.layers.dropout({rate: this.dropRate});
+  // apply dropout
+  const dropped = tf.layers.dropout({rate: dropoutRate}).apply(weights);
 
-    super.build();
-  }
+  // perform weighted aggregation of the values
+  const out = tf.layers.dot({axes: [2, 1]}).apply([dropped, value]);
 
-  call(x){
-    // get dimensions of input embeddings
-    const [B, T, C] = x.shape;
+  // build the model
+  return tf.model({inputs: input, outputs: out});
+}
 
-    // pass embeddings through key and query layers
-    const k = this.key.apply(x); // (B, T, headSize)
-    const q = this.query.apply(x); // (B, T, headSize)
-    
-    // compute self attention scores
-    const k_t = tf.transpose(k, [0, 2, 1]); // (B, headSize, T)
-    let wei = tf.matMul(q, k_t); // (B, T, headSize) @ (B, headSize, T) = (B, T, T)
-    wei = wei.mul(tf.scalar(1 / Math.sqrt(this.headSize))); // scale by 1/sqrt(headSize)
-
-    // create mask
-    const tril = this.tril.slice([0, 0], [T, T]); // (T, T)
-    const mask = tril.equal(0).expandDims(0); // (1, T, T)
-    const negInf = tf.fill(wei.shape, Number.NEGATIVE_INFINITY);
-
-    // apply mask
-    wei = tf.where(mask, negInf, wei); // where mask is true, set -inf
-    wei = tf.softmax(wei, -1); // (B, T, T) 
-
-    // apply dropout
-    wei = this.dropout.apply(wei);
-
-    // perform weighted aggregation of the values
-    const v = this.value.apply(x); // (B, T, headSize)
-    const out = tf.matMul(wei, v); // (B, T, T) @ (B, T, headSize) = (B, T, headSize)
-    return out;
-  }
-
-  getClassName() { return 'Head'; }
+// define function that returns a FeedForward layer as a tf.model
+function createFeedForward(nEmbd) {
+  const input = tf.input({shape: [null, nEmbd]});
+  
+  // expansion layer with ReLU activation
+  const expanded = tf.layers.dense({
+    units: 4 * nEmbd,
+    activation: 'relu',
+  }).apply(input);
+  
+  // compression layer
+  const compressed = tf.layers.dense({
+    units: nEmbd,
+  }).apply(expanded);
+  
+  // dropout layer
+  const output = tf.layers.dropout({rate: DROPOUT}).apply(compressed);
+  return tf.model({inputs: input, outputs: output});
 }
 
 // define MultiHeadAttention
@@ -177,13 +150,10 @@ class MultiHeadAttention extends tf.layers.Layer {
 
     // instantiate heads
     this.heads = Array.from({length: numHeads},
-      () => new Head(this.headSize));
+      () => createHead(this.blockSize, this.nEmbd, this.headSize, this.dropRate));
   }
 
   build() {
-    // forward the build call to each head
-    this.heads.forEach(head => head.build());
-
     // projection layer
     this.proj = tf.layers.dense({
       inputDim: this.nEmbd,
@@ -213,27 +183,6 @@ class MultiHeadAttention extends tf.layers.Layer {
   }
 
   getClassName() { return 'MultiHeadAttention'; }
-}
-
-// define function that returns a FeedForward layer as a tf.model
-function createFeedForward(nEmbd) {
-  const input = tf.input({shape: [null, nEmbd]});
-  
-  // expansion layer with ReLU activation
-  const expanded = tf.layers.dense({
-    units: 4 * nEmbd,
-    activation: 'relu',
-  }).apply(input);
-  
-  // compression layer
-  const compressed = tf.layers.dense({
-    units: nEmbd,
-  }).apply(expanded);
-  
-  // dropout layer
-  const output = tf.layers.dropout({rate: DROPOUT}).apply(compressed);
-  
-  return tf.model({inputs: input, outputs: output});
 }
 
 // define Transformer block
