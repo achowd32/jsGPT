@@ -12,7 +12,7 @@ const N_EMBD = 128;
 const N_LAYER = 4;
 const N_HEAD = 4;
 const HEAD_SIZE = 16;
-const LEARNING_RATE = 0.0003;
+const LEARNING_RATE = 0.001;
 const EVAL_ITERS = 50;
 const DROPOUT = 0.0;
 
@@ -68,6 +68,54 @@ function getBatch(split){
   const yVal = tf.stack(yRows);
   return {x: xVal, y: yVal};
 }
+// ------------------- LAYER DEFINITIONS ------------------------
+
+// layer to perform the scaling operation in Head
+class ScaleLayer extends tf.layers.Layer {
+  constructor(config) {
+    super(config);
+    this.scale = config.scale;
+  }
+  call(inputs) {
+    const x = Array.isArray(inputs) ? inputs[0] : inputs;
+    return tf.mul(x, tf.scalar(this.scale));
+  }
+  getConfig() {
+    return Object.assign(super.getConfig(), {scale: this.scale});
+  }
+  static get className() { return 'ScaleLayer'; }
+}
+tf.serialization.registerClass(ScaleLayer);
+
+// layer to perform the masking operation in Head
+class CausalMask extends tf.layers.Layer {
+  constructor(config) {
+    super(config);
+    this.blockSize = config.blockSize;
+  }
+  build(inputShape) {
+    this.tril = tf.linalg.bandPart(tf.ones([this.blockSize, this.blockSize], 'bool'), -1, 0);  // shape [Tmax, Tmax]
+    super.build(inputShape);
+  }
+  call(inputs/*, kwargs*/) {
+    const scores = Array.isArray(inputs) ? inputs[0] : inputs; // [B, T, T]
+    const shape = scores.shape; // e.g. [1, 10, 10]
+    const T = shape[1]; // 10 at runtime
+
+    // slice out the [T, T] submatrix
+    const mask2d = this.tril.slice([0, 0], [T, T]); // [T, T]
+    const mask = mask2d.logicalNot().expandDims(0); // [1, T, T]
+
+    const negInf = tf.fill(shape, Number.NEGATIVE_INFINITY); // [1, T, T]
+    return tf.where(mask, negInf, scores); // [1, T, T]
+  }
+  getConfig() {
+    return Object.assign(super.getConfig(), {blockSize: this.blockSize});
+  }
+  static get className() { return 'CausalMask'; }
+}
+tf.serialization.registerClass(CausalMask);
+
 // ------------------- MODEL DEFINITIONS ------------------------
 
 // define function that returns Identity layer as a tf.model
@@ -98,14 +146,11 @@ function createHead(blockSize, nEmbd, headSize, dropoutRate) {
   // compute self attention scores
   const keyT = tf.layers.permute({dims: [2, 1]}).apply(key); // (B, headSize, T)
   const scores = tf.layers.dot({axes: [2, 1]}).apply([query, keyT]); // (B, T, headSize) @ (B, headSize, T) = (B, T, T)
-
-  // scale by 1/sqrt(headSize)
-  /*const scaled = tf.layers.activation({
-    activation: x => tf.mul(x, tf.scalar(1/Math.sqrt(headSize)))
-  }).apply(scores);*/
+  const scaled = new ScaleLayer({scale: 1/Math.sqrt(headSize)}).apply(scores); // scale by 1/sqrt(headSize)
   
-  // create and apply mask: TODO
-  const weights = tf.layers.activation({activation: 'softmax'}).apply(scores);
+  // apply mask
+  const masked = new CausalMask({blockSize}).apply(scaled);
+  const weights = tf.layers.activation({activation: 'softmax'}).apply(masked);
 
   // apply dropout
   const dropped = tf.layers.dropout({rate: dropoutRate}).apply(weights);
@@ -137,52 +182,27 @@ function createFeedForward(nEmbd) {
   return tf.model({inputs: input, outputs: output});
 }
 
-// define MultiHeadAttention
-class MultiHeadAttention extends tf.layers.Layer {
-  constructor(numHeads, headSize) {
-    super({});
-    this.vocabSize = vocabSizeVal;
-    this.numHeads = numHeads;
-    this.headSize = headSize;
-    this.nEmbd = N_EMBD;
-    this.blockSize = BLOCK_SIZE;
-    this.dropRate = DROPOUT;
+// function that returns MultiHeadAttention as a tf.model
+function createMultiHeadAttention(numHeads, headSize, nEmbd, blockSize, dropRate) {
+  const input = tf.input({shape: [null, nEmbd]});
 
-    // instantiate heads
-    this.heads = Array.from({length: numHeads},
-      () => createHead(this.blockSize, this.nEmbd, this.headSize, this.dropRate));
-  }
+  // instantiate heads
+  const heads = Array.from({length: numHeads},
+    () => createHead(blockSize, nEmbd, headSize, dropRate));
 
-  build() {
-    // projection layer
-    this.proj = tf.layers.dense({
-      inputDim: this.nEmbd,
-      units: this.nEmbd,
-    });
+  // apply each head in parallel
+  let out = heads.map(head => head.apply(input));
 
-    // dropout layer
-    this.dropout = tf.layers.dropout({rate: this.dropRate});
+  // concat each headOut value along the feature axis 
+  out = tf.layers.concatenate({axis: 2}).apply(out);
 
-    super.build();
-  }
+  // apply projection layer
+  out = tf.layers.dense({units: nEmbd}).apply(out);
 
-  call(x) {
-    // apply each head in parallel
-    let out = this.heads.map(head => head.apply(x));  
+  // apply dropout
+  out = tf.layers.dropout({rate: dropRate}).apply(out);
 
-    // concat each headOut value along the feature axis 
-    out = tf.concat(out, 2);
-
-    // apply projection layer
-    out = this.proj.apply(out);
-
-    // apply dropout
-    out = this.dropout.apply(out);
-
-    return out;
-  }
-
-  getClassName() { return 'MultiHeadAttention'; }
+  return tf.model({inputs: input, outputs: out});
 }
 
 // define Transformer block
@@ -196,7 +216,7 @@ class Block extends tf.layers.Layer{
 
   build(){
     // create self attention layer
-    this.sa = new MultiHeadAttention(this.nHead, this.headSize);
+    this.sa = createMultiHeadAttention(this.nHead, this.headSize, this.nEmbd, BLOCK_SIZE, DROPOUT);
 
     // create feed forward layer
     this.ffwd = createFeedForward(this.nEmbd);
