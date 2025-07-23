@@ -267,9 +267,6 @@ class GPTLanguageModel extends tf.layers.Layer {
   constructor(){
     super({});
     this.vocabSize = vocabSizeVal;
-    this.nLayer = N_LAYER;
-    this.nEmbd = N_EMBD;
-    this.nHead = N_HEAD;
     this.blockSize = BLOCK_SIZE;
   }
 
@@ -325,6 +322,16 @@ class GPTLanguageModel extends tf.layers.Layer {
     return context;
   } 
 
+  async save(filepath){
+    // save the model to a file
+    return this.gptModel.save(`file://${filepath}`);
+  }
+
+  async load(filepath){
+    // load the model from a file
+    this.gptModel = await tf.loadLayersModel(`file://${filepath}/model.json`);
+  }
+
   getClassName() { return 'GPTLanguageModel'; }
 }
 
@@ -357,12 +364,12 @@ for(let i = 0; i < MAX_ITERS; i++){
 optimizer.dispose();
 
 // save the model
-await gptmodel.gptModel.save('file://./saved_model');
+await gptmodel.save('saved_model');
 
 // create new model and save weights
 const newModel = new GPTLanguageModel();
 newModel.build();
-newModel.gptModel = await tf.loadLayersModel('file://./saved_model/model.json');
+await newModel.load('saved_model');
 
 // decode and print results from newModel
 const cont = tf.zeros([1, 1], "int32");
