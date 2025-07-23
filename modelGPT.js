@@ -340,24 +340,31 @@ gptmodel.build();
 // training loop
 for(let i = 0; i < MAX_ITERS; i++){
   // get batch
-  const batch = getBatch("train");
-  const xb = batch.x;
-  const yb = batch.y;
+  const {x, y} = getBatch("train");
   
   // get loss
   optimizer.minimize(() => {
-    const loss = gptmodel.loss(xb, yb);
+    const loss = gptmodel.loss(x, y);
     if(i % EVAL_ITERS == 0) { loss.print(); }
     return loss;
   });
 
-  xb.dispose();
-  yb.dispose();
+  x.dispose();
+  y.dispose();
 }
 
+// dispose of optimizer
 optimizer.dispose();
 
-// decode and print results
+// save the model
+await gptmodel.gptModel.save('file://./saved_model');
+
+// create new model and save weights
+const newModel = new GPTLanguageModel();
+newModel.build();
+newModel.gptModel = await tf.loadLayersModel('file://./saved_model/model.json');
+
+// decode and print results from newModel
 const cont = tf.zeros([1, 1], "int32");
-const batcharr = gptmodel.generate(cont, 500).arraySync()[0];
+const batcharr = newModel.generate(cont, 500).arraySync()[0];
 console.log(decode(batcharr));
