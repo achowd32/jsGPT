@@ -234,6 +234,34 @@ function createBlock(nHead) {
   return tf.model({inputs: input, outputs: residual2});
 }
 
+// function that returns a complete GPT Language Model as a tf.model (without position embeddings)
+function createGPT() {
+  const input = tf.input({shape: [BLOCK_SIZE], dtype: 'int32'});
+
+  // token embedding table
+  const tokEmbd = tf.layers.embedding({
+    inputDim: vocabSizeVal,
+    outputDim: N_EMBD,
+  }).apply(input); // (B, T, N_EMBD)
+
+  // apply all transformer blocks sequentially
+  let blockEmbd = tokEmbd;
+  for(let i = 0; i < N_LAYER; i++){
+    const block = createBlock(N_HEAD);
+    blockEmbd = block.apply(blockEmbd);
+  }
+
+  // final layer normalization
+  const normalized = tf.layers.layerNormalization().apply(blockEmbd);
+
+  // linear layer to vocabulary size
+  const logits = tf.layers.dense({
+    units: vocabSizeVal,
+  }).apply(normalized); // (B, T, vocabSize)
+
+  return tf.model({inputs: input, outputs: logits});
+}
+
 // define GPT language model
 class GPTLanguageModel extends tf.layers.Layer {
   constructor(){
@@ -246,58 +274,14 @@ class GPTLanguageModel extends tf.layers.Layer {
   }
 
   build(){
-    // build token embedding table
-    this.tokenEmbeddingTable = tf.layers.embedding({
-      inputDim: this.vocabSize,
-      outputDim: this.nEmbd,
-    });
-    this.tokenEmbeddingTable.build([null, this.blockSize]);
-
-    // build position embedding table
-    this.positionEmbeddingTable = tf.layers.embedding({
-      inputDim: this.blockSize,
-      outputDim: this.nEmbd,
-    });
-    this.positionEmbeddingTable.build([null, this.blockSize]);
-
-    // array of transformer blocks
-    this.blockArr = [];
-    for(let i  = 0; i < this.nLayer; i++){
-      const blk = createBlock(this.nHead);
-      this.blockArr.push(blk);
-    }
-
-    // build final layernorm
-    this.ln = tf.layers.layerNormalization();
-
-    // build linear layer
-    this.lmHead = tf.layers.dense({
-      inputDim: this.nEmbd,
-      units: this.vocabSize,
-    });
-
+    // create the complete GPT model
+    this.gptModel = createGPT();
     super.build();
   }
 
-  call(inputs){ // FIX (CHECK) DIMENSIONS
-    // get input shape
-    const [B, T] = inputs.shape;
-
-    // get embeddings as a sum of token and position embeddings
-    const tokEmbd = this.tokenEmbeddingTable.apply(inputs); // (B, T, nEmbd)
-    const posEmbd = this.positionEmbeddingTable.apply(
-      tf.range(0, T, 1, "int32")).expandDims(0); // (1, T, nEmbd)
-    const embdSum = tokEmbd.add(posEmbd); // (B, T, nEmbd)
-
-    // apply all transformer blocks sequentially
-    let blockEmbd = embdSum; // (B, T, nEmbd)
-    for(const block of this.blockArr){
-      blockEmbd = block.apply(blockEmbd);
-    }
-    blockEmbd = this.ln.apply(blockEmbd);
-
-    const logits = this.lmHead.apply(blockEmbd); // (B, T, vocabSize)
-    return logits;
+  call(inputs){
+    // delegate to the internal model
+    return this.gptModel.apply(inputs);
   }
   
   loss(inputs, targets){
