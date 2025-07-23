@@ -120,23 +120,23 @@ tf.serialization.registerClass(CausalMask);
 
 // define function that returns Identity layer as a tf.model
 // can be used to replace the time intensive layerNorm operation
-function createIdentity(nEmbd) {
-  const input = tf.input({shape: [null, nEmbd]});
+function createIdentity() {
+  const input = tf.input({shape: [null, N_EMBD]});
   // identity function - just return the input as output
   return tf.model({inputs: input, outputs: input});
 }
 
 // define function that returns a LayerNorm layer as a tf.model
-function createLayerNorm(nEmbd) {
-  const input = tf.input({shape: [null, nEmbd]});
+function createLayerNorm() {
+  const input = tf.input({shape: [null, N_EMBD]});
   const normalized = tf.layers.layerNormalization().apply(input);
   return tf.model({inputs: input, outputs: normalized});
 }
 
 // define function that returns a Head layer as a tf.model
-function createHead(blockSize, nEmbd, headSize, dropoutRate) {
+function createHead(headSize) {
   // create symbolic input
-  const input = tf.input({shape: [null, nEmbd], dtype: 'float32'});
+  const input = tf.input({shape: [null, N_EMBD], dtype: 'float32'});
 
   // create key, query, value embeddings; (B, T, headSize)
   const key   = tf.layers.dense({units: headSize, useBias: false}).apply(input);
@@ -149,11 +149,11 @@ function createHead(blockSize, nEmbd, headSize, dropoutRate) {
   const scaled = new ScaleLayer({scale: 1/Math.sqrt(headSize)}).apply(scores); // scale by 1/sqrt(headSize)
   
   // apply mask
-  const masked = new CausalMask({blockSize}).apply(scaled);
+  const masked = new CausalMask({blockSize: BLOCK_SIZE}).apply(scaled);
   const weights = tf.layers.activation({activation: 'softmax'}).apply(masked);
 
   // apply dropout
-  const dropped = tf.layers.dropout({rate: dropoutRate}).apply(weights);
+  const dropped = tf.layers.dropout({rate: DROPOUT}).apply(weights);
 
   // perform weighted aggregation of the values
   const out = tf.layers.dot({axes: [2, 1]}).apply([dropped, value]);
@@ -163,18 +163,18 @@ function createHead(blockSize, nEmbd, headSize, dropoutRate) {
 }
 
 // define function that returns a FeedForward layer as a tf.model
-function createFeedForward(nEmbd) {
-  const input = tf.input({shape: [null, nEmbd]});
+function createFeedForward() {
+  const input = tf.input({shape: [null, N_EMBD]});
   
   // expansion layer with ReLU activation
   const expanded = tf.layers.dense({
-    units: 4 * nEmbd,
+    units: 4 * N_EMBD,
     activation: 'relu',
   }).apply(input);
   
   // compression layer
   const compressed = tf.layers.dense({
-    units: nEmbd,
+    units: N_EMBD,
   }).apply(expanded);
   
   // dropout layer
@@ -183,12 +183,12 @@ function createFeedForward(nEmbd) {
 }
 
 // function that returns MultiHeadAttention as a tf.model
-function createMultiHeadAttention(numHeads, headSize, nEmbd, blockSize, dropRate) {
-  const input = tf.input({shape: [null, nEmbd]});
+function createMultiHeadAttention(numHeads, headSize) {
+  const input = tf.input({shape: [null, N_EMBD]});
 
   // instantiate heads
   const heads = Array.from({length: numHeads},
-    () => createHead(blockSize, nEmbd, headSize, dropRate));
+    () => createHead(headSize));
 
   // apply each head in parallel
   let out = heads.map(head => head.apply(input));
@@ -197,47 +197,41 @@ function createMultiHeadAttention(numHeads, headSize, nEmbd, blockSize, dropRate
   out = tf.layers.concatenate({axis: 2}).apply(out);
 
   // apply projection layer
-  out = tf.layers.dense({units: nEmbd}).apply(out);
+  out = tf.layers.dense({units: N_EMBD}).apply(out);
 
   // apply dropout
-  out = tf.layers.dropout({rate: dropRate}).apply(out);
+  out = tf.layers.dropout({rate: DROPOUT}).apply(out);
 
   return tf.model({inputs: input, outputs: out});
 }
 
-// define Transformer block
-class Block extends tf.layers.Layer{
-  constructor(nEmbd, nHead){
-    super({});
-    this.nEmbd = nEmbd;
-    this.nHead = nHead;
-    this.headSize = Math.floor(nEmbd / nHead);
-  }
+// function that returns a Transformer Block as a tf.model
+function createBlock(nHead) {
+  const input = tf.input({shape: [null, N_EMBD]});
+  const headSize = Math.floor(N_EMBD / nHead);
 
-  build(){
-    // create self attention layer
-    this.sa = createMultiHeadAttention(this.nHead, this.headSize, this.nEmbd, BLOCK_SIZE, DROPOUT);
+  // create self attention layer
+  const sa = createMultiHeadAttention(nHead, headSize);
 
-    // create feed forward layer
-    this.ffwd = createFeedForward(this.nEmbd);
+  // create feed forward layer
+  const ffwd = createFeedForward();
 
-    // create layerNorm layers, or use the Identity layer to avoid layerNorm
-    // this.ln1 = createLayerNorm(this.nEmbd);
-    // this.ln2 = createLayerNorm(this.nEmbd);
-    this.ln1 = createIdentity(this.nEmbd);
-    this.ln2 = createIdentity(this.nEmbd);
+  // create layerNorm layers, or use the Identity layer to avoid layerNorm
+  // const ln1 = createLayerNorm();
+  // const ln2 = createLayerNorm();
+  const ln1 = createIdentity();
+  const ln2 = createIdentity();
 
-    super.build();
-  }
-
-  call(input){
-    // perform computations with residual
-    let out = input.add(this.sa.apply(this.ln1.apply(input))); // input + sa(ln1(input))
-    out = out.add(this.ffwd.apply(this.ln2.apply(out))); // out + ffwd(ln2(out))
-    return out;
-  }
+  // perform computations with residual
+  const ln1Out = ln1.apply(input);
+  const saOut = sa.apply(ln1Out);
+  const residual1 = tf.layers.add().apply([input, saOut]); // input + sa(ln1(input))
   
-  getClassName(){ return 'Block'; }
+  const ln2Out = ln2.apply(residual1);
+  const ffwdOut = ffwd.apply(ln2Out);
+  const residual2 = tf.layers.add().apply([residual1, ffwdOut]); // residual1 + ffwd(ln2(residual1))
+
+  return tf.model({inputs: input, outputs: residual2});
 }
 
 // define GPT language model
@@ -269,8 +263,7 @@ class GPTLanguageModel extends tf.layers.Layer {
     // array of transformer blocks
     this.blockArr = [];
     for(let i  = 0; i < this.nLayer; i++){
-      const blk = new Block(this.nEmbd, this.nHead);
-      blk.build();
+      const blk = createBlock(this.nHead);
       this.blockArr.push(blk);
     }
 
