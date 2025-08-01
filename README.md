@@ -10,6 +10,7 @@ So far, the following architectures have been implemented:
 - `layerBigram.js`: the bigram model implemented using the custom layer API.
 - `modelBigram.js`: the bigram model implemented using the model API.
 - `layerGPT.js`: the NanoGPT model implemented using the custom layer API.
+- `modelGPT.js`: the NanoGPT model implemented using the model API.
 
 ## Purpose
 1. To assist with my assigned research project, which involves creating a pipeline for training LLMs in the shell.

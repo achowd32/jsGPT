@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import '@tensorflow/tfjs-node';
 import * as tf from '@tensorflow/tfjs';
 import * as fs from 'fs';
@@ -331,7 +330,7 @@ class GPTLanguageModel extends tf.layers.Layer {
     super.build();
   }
 
-  call(inputs){ // FIX (CHECK) DIMENSIONS
+  call(inputs){ 
     // get input shape
     const [B, T] = inputs.shape;
 
@@ -353,6 +352,7 @@ class GPTLanguageModel extends tf.layers.Layer {
   }
   
   loss(inputs, targets){
+    const returnLoss = tf.tidy(() => { 
       // get logits
       const logitsT = this.apply(inputs);
 
@@ -364,8 +364,9 @@ class GPTLanguageModel extends tf.layers.Layer {
       const oneHotTargets = tf.oneHot(flatTargets, this.vocabSize);
 
       // calculate and return loss
-      const loss = tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
-      return loss;
+      return tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
+    });
+    return returnLoss;
   }
 
   generate(context, maxTokens){

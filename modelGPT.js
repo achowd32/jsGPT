@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// WORK IN PROGRESS
 import '@tensorflow/tfjs-node';
 import * as tf from '@tensorflow/tfjs';
 import * as fs from 'fs';
@@ -97,7 +96,7 @@ class CausalMask extends tf.layers.Layer {
     this.tril = tf.linalg.bandPart(tf.ones([this.blockSize, this.blockSize], 'bool'), -1, 0);  // shape [Tmax, Tmax]
     super.build(inputShape);
   }
-  call(inputs/*, kwargs*/) {
+  call(inputs) {
     const scores = Array.isArray(inputs) ? inputs[0] : inputs; // [B, T, T]
     const shape = scores.shape; // e.g. [1, 10, 10]
     const T = shape[1]; // 10 at runtime
@@ -109,12 +108,44 @@ class CausalMask extends tf.layers.Layer {
     const negInf = tf.fill(shape, Number.NEGATIVE_INFINITY); // [1, T, T]
     return tf.where(mask, negInf, scores); // [1, T, T]
   }
+
   getConfig() {
     return Object.assign(super.getConfig(), {blockSize: this.blockSize});
   }
+
   static get className() { return 'CausalMask'; }
 }
 tf.serialization.registerClass(CausalMask);
+
+class PositionalEmbedding extends tf.layers.Layer {
+  constructor(config) {
+    super(config);
+    this.blockSize = config.blockSize;
+    this.nEmbd = config.nEmbd;
+    this.positionEmbeddingTable = tf.layers.embedding({
+      inputDim: this.blockSize,
+      outputDim: this.nEmbd,
+    });
+  }
+
+  call(input){
+    // get input shape
+    const [B, T] = input[0].shape;
+    
+    // apply positional embeddings
+    const posEmbd = this.positionEmbeddingTable.apply(
+      tf.range(0, T, 1, "int32")).expandDims(0); // (1, T, nEmbd)
+    return input[0].add(posEmbd); // (B, T, nEmbd)
+  }
+
+  getConfig() {
+    return Object.assign(super.getConfig(),
+      {blockSize: this.blockSize, nEmbd: this.nEmbd});
+  }
+
+  static get className() { return 'PositionalEmbedding'; }
+}
+tf.serialization.registerClass(PositionalEmbedding);
 
 // ------------------- MODEL DEFINITIONS ------------------------
 
@@ -244,8 +275,12 @@ function createGPT() {
     outputDim: N_EMBD,
   }).apply(input); // (B, T, N_EMBD)
 
+  // positional embedding table
+  const posEmbdLayer = new PositionalEmbedding({blockSize: BLOCK_SIZE, nEmbd: N_EMBD});
+  const posEmbd = posEmbdLayer.apply(tokEmbd);
+
   // apply all transformer blocks sequentially
-  let blockEmbd = tokEmbd;
+  let blockEmbd = posEmbd;
   for(let i = 0; i < N_LAYER; i++){
     const block = createBlock(N_HEAD);
     blockEmbd = block.apply(blockEmbd);
@@ -263,25 +298,20 @@ function createGPT() {
 }
 
 // define GPT language model
-class GPTLanguageModel extends tf.layers.Layer {
+class GPTLanguageModel {
   constructor(){
-    super({});
     this.vocabSize = vocabSizeVal;
     this.blockSize = BLOCK_SIZE;
-  }
-
-  build(){
-    // create the complete GPT model
     this.gptModel = createGPT();
-    super.build();
   }
 
-  call(inputs){
+  apply(inputs){
     // delegate to the internal model
     return this.gptModel.apply(inputs);
   }
   
   loss(inputs, targets){
+    const returnLoss = tf.tidy(() => { 
       // get logits
       const logitsT = this.apply(inputs);
 
@@ -293,8 +323,9 @@ class GPTLanguageModel extends tf.layers.Layer {
       const oneHotTargets = tf.oneHot(flatTargets, this.vocabSize);
 
       // calculate and return loss
-      const loss = tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
-      return loss;
+      return tf.losses.softmaxCrossEntropy(oneHotTargets, flatLogits);
+    });
+    return returnLoss;
   }
 
   generate(context, maxTokens){
@@ -338,11 +369,9 @@ class GPTLanguageModel extends tf.layers.Layer {
 
 // ------------------------- TRAINING LOOP -----------------------------
 
-
 // define model and optimizer
 const gptmodel = new GPTLanguageModel();
 const optimizer = tf.train.adam(LEARNING_RATE);
-gptmodel.build();
 
 // training loop
 for(let i = 0; i < MAX_ITERS; i++){
@@ -363,15 +392,7 @@ for(let i = 0; i < MAX_ITERS; i++){
 // dispose of optimizer
 optimizer.dispose();
 
-// save the model
-await gptmodel.save('saved_model');
-
-// create new model and save weights
-const newModel = new GPTLanguageModel();
-newModel.build();
-await newModel.load('saved_model');
-
 // decode and print results from newModel
 const cont = tf.zeros([1, 1], "int32");
-const batcharr = newModel.generate(cont, 500).arraySync()[0];
+const batcharr = gptmodel.generate(cont, 500).arraySync()[0];
 console.log(decode(batcharr));
