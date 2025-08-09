@@ -6,17 +6,17 @@ import * as fs from 'fs';
 // hyperparameters
 const BATCH_SIZE = 12;
 const BLOCK_SIZE = 64;
-const MAX_ITERS = 200;
+const MAX_ITERS = 1000;
 const N_EMBD = 128;
 const N_LAYER = 4;
 const N_HEAD = 4;
 const HEAD_SIZE = 16;
-const LEARNING_RATE = 0.001;
-const EVAL_ITERS = 50;
+const LEARNING_RATE = 0.0003;
+const EVAL_INTERVAL = 100;
 const DROPOUT = 0.0;
 
 // read in data file
-const dataStr = fs.readFileSync('data.txt').toString();
+const dataStr = fs.readFileSync('../data.txt').toString();
 
 // set up token encoder and decoder
 const charList = Array.from(new Set(dataStr)).sort();
@@ -92,10 +92,12 @@ class CausalMask extends tf.layers.Layer {
     super(config);
     this.blockSize = config.blockSize;
   }
+
   build(inputShape) {
     this.tril = tf.linalg.bandPart(tf.ones([this.blockSize, this.blockSize], 'bool'), -1, 0);  // shape [Tmax, Tmax]
     super.build(inputShape);
   }
+
   call(inputs) {
     const scores = Array.isArray(inputs) ? inputs[0] : inputs; // [B, T, T]
     const shape = scores.shape; // e.g. [1, 10, 10]
@@ -122,27 +124,40 @@ class PositionalEmbedding extends tf.layers.Layer {
     super(config);
     this.blockSize = config.blockSize;
     this.nEmbd = config.nEmbd;
-    this.positionEmbeddingTable = tf.layers.embedding({
-      inputDim: this.blockSize,
-      outputDim: this.nEmbd,
-    });
+    this.embInit = tf.initializers.randomNormal({ mean: 0, stddev: 0.02 });
   }
 
-  call(input){
-    // get input shape
-    const [B, T] = input[0].shape;
-    
-    // apply positional embeddings
-    const posEmbd = this.positionEmbeddingTable.apply(
-      tf.range(0, T, 1, "int32")).expandDims(0); // (1, T, nEmbd)
-    return input[0].add(posEmbd); // (B, T, nEmbd)
+  build(inputShape) {
+    // Create an actual weight on THIS layer so TFJS saves/loads it
+    this.posTable = this.addWeight(
+      'pos_table',
+      [this.blockSize, this.nEmbd],
+      'float32',
+      this.embInit,
+      true,
+    );
+    super.build(inputShape);
+  }
+
+  call(inputs) {
+    const x = Array.isArray(inputs) ? inputs[0] : inputs; // [B, T, C]
+    const T = x.shape[1];
+
+    // Fast path: positions are 0..T-1, so just slice the first T rows
+    const table = this.posTable.read();                   // [BLOCK_SIZE, C]
+    const posEmbd = table.slice([0, 0], [T, -1])          // [T, C]
+                          .expandDims(0);                 // [1, T, C]
+
+    return x.add(posEmbd);                                // broadcast over B
   }
 
   getConfig() {
-    return Object.assign(super.getConfig(),
-      {blockSize: this.blockSize, nEmbd: this.nEmbd});
+    return Object.assign(super.getConfig(), {
+      blockSize: this.blockSize,
+      nEmbd: this.nEmbd,
+      // (optional) serialize initializer if you vary it
+    });
   }
-
   static get className() { return 'PositionalEmbedding'; }
 }
 tf.serialization.registerClass(PositionalEmbedding);
@@ -248,10 +263,10 @@ function createBlock(nHead) {
   const ffwd = createFeedForward();
 
   // create layerNorm layers, or use the Identity layer to avoid layerNorm
-  // const ln1 = createLayerNorm();
-  // const ln2 = createLayerNorm();
-  const ln1 = createIdentity();
-  const ln2 = createIdentity();
+  const ln1 = createLayerNorm();
+  const ln2 = createLayerNorm();
+  //const ln1 = createIdentity();
+  //const ln2 = createIdentity();
 
   // perform computations with residual
   const ln1Out = ln1.apply(input);
@@ -366,7 +381,6 @@ class GPTLanguageModel {
   getClassName() { return 'GPTLanguageModel'; }
 }
 
-
 // ------------------------- TRAINING LOOP -----------------------------
 
 // define model and optimizer
@@ -381,7 +395,7 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = gptmodel.loss(x, y);
-    if(i % EVAL_ITERS == 0) { loss.print(); }
+    if(i % EVAL_INTERVAL == 0) { loss.print(); }
     return loss;
   });
 

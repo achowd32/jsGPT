@@ -6,17 +6,17 @@ import * as fs from 'fs';
 // hyperparameters
 const BATCH_SIZE = 12;
 const BLOCK_SIZE = 64;
-const MAX_ITERS = 50;
+const MAX_ITERS = 2000;
 const N_EMBD = 128;
 const N_LAYER = 4;
 const N_HEAD = 4;
 const HEAD_SIZE = 16;
-const LEARNING_RATE = 0.001;
-const EVAL_ITERS = 50;
+const LEARNING_RATE = 0.0003;
+const EVAL_INTERVAL = 100;
 const DROPOUT = 0.0;
 
 // read in data file
-const dataStr = fs.readFileSync('data.txt').toString();
+const dataStr = fs.readFileSync('../data.txt').toString();
 
 // set up token encoder and decoder
 const charList = Array.from(new Set(dataStr)).sort();
@@ -416,7 +416,7 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = gptmodel.loss(xb, yb);
-    if(i % EVAL_ITERS == 0) { loss.print(); }
+    if(i % EVAL_INTERVAL == 0) { loss.print(); }
     return loss;
   });
 
