@@ -147,7 +147,8 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = bgmodel.loss(xb, yb);
-    if(i % 1000 == 0){ loss.print(); }
+    const lossArr = loss.arraySync();
+    if(i % 1000 == 0) {console.log(`Loss at iteration ${i}: ${lossArr}`);}
     return loss;
   });
 

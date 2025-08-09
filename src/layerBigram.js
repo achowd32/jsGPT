@@ -145,7 +145,8 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = bgmodel.loss(xb, yb);
-    if(i % 1000 == 0){ loss.print(); }
+    const lossArr = loss.arraySync();
+    if(i % 1000 == 0) {console.log(`Loss at iteration ${i}: ${lossArr}`);}
     return loss;
   });
 
@@ -157,5 +158,5 @@ optimizer.dispose();
 
 // decode and print results
 const cont = tf.zeros([1, 1], "int32");
-const batcharr = bgmodel.generate(cont, 200).arraySync()[0];
+const batcharr = bgmodel.generate(cont, 500).arraySync()[0];
 console.log(decode(batcharr));

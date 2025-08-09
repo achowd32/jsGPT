@@ -128,7 +128,7 @@ class PositionalEmbedding extends tf.layers.Layer {
   }
 
   build(inputShape) {
-    // Create an actual weight on THIS layer so TFJS saves/loads it
+    // create weights with addWeight so TFJS can save and load properly
     this.posTable = this.addWeight(
       'pos_table',
       [this.blockSize, this.nEmbd],
@@ -140,22 +140,20 @@ class PositionalEmbedding extends tf.layers.Layer {
   }
 
   call(inputs) {
-    const x = Array.isArray(inputs) ? inputs[0] : inputs; // [B, T, C]
+    // prepare inputs
+    const x = Array.isArray(inputs) ? inputs[0] : inputs; // (B, T, C)
     const T = x.shape[1];
 
-    // Fast path: positions are 0..T-1, so just slice the first T rows
-    const table = this.posTable.read();                   // [BLOCK_SIZE, C]
-    const posEmbd = table.slice([0, 0], [T, -1])          // [T, C]
-                          .expandDims(0);                 // [1, T, C]
-
-    return x.add(posEmbd);                                // broadcast over B
+    // slice from table, add, and return
+    const table = this.posTable.read(); // (BLOCK_SIZE, C)
+    const posEmbd = table.slice([0, 0], [T, -1]).expandDims(0); // (1, T, C)
+    return x.add(posEmbd);
   }
 
   getConfig() {
     return Object.assign(super.getConfig(), {
       blockSize: this.blockSize,
       nEmbd: this.nEmbd,
-      // (optional) serialize initializer if you vary it
     });
   }
   static get className() { return 'PositionalEmbedding'; }
@@ -395,7 +393,8 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = gptmodel.loss(x, y);
-    if(i % EVAL_INTERVAL == 0) { loss.print(); }
+    const lossArr = loss.arraySync();
+    if(i % EVAL_INTERVAL == 0) {console.log(`Loss at iteration ${i}: ${lossArr}`);}
     return loss;
   });
 

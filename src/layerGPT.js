@@ -416,7 +416,8 @@ for(let i = 0; i < MAX_ITERS; i++){
   // get loss
   optimizer.minimize(() => {
     const loss = gptmodel.loss(xb, yb);
-    if(i % EVAL_INTERVAL == 0) { loss.print(); }
+    const lossArr = loss.arraySync();
+    if(i % EVAL_INTERVAL == 0) {console.log(`Loss at iteration ${i}: ${lossArr}`);}
     return loss;
   });
 
