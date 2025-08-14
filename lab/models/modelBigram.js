@@ -1,16 +1,13 @@
-#!/usr/bin/env node
-
-import '@tensorflow/tfjs-node';
-import * as tf from '@tensorflow/tfjs';
-import * as fs from 'fs';
+// setup backend; TODO: add try/catch for failures
+await tf.setBackend("webgpu");
 
 // hyperparameters
 const BATCH_SIZE = 32;
 const BLOCK_SIZE = 32;
-const MAX_ITERS = 10000;
+const MAX_ITERS = 5000;
 
 // read in data file
-const dataStr = fs.readFileSync('./data.txt').toString();
+const dataStr = await (await fetch('./data.txt')).text();
 
 // set up token encoder and decoder
 const charList = Array.from(new Set(dataStr)).sort();
@@ -102,8 +99,8 @@ class BigramLanguageModel {
   }
 
   generate(context, maxTokens) {
-    const output = tf.tidy(() => {
-      for (let i = 0; i < maxTokens; i++) {
+    for (let i = 0; i < maxTokens; i++) {
+      context = tf.tidy(() => {
         // get predictions
         const logits = this.apply(context);
         // get last time step
@@ -111,14 +108,12 @@ class BigramLanguageModel {
         // scale logits
         const scaledLast = last.mul(tf.scalar(3));
         // sample from distribution
-        const next = tf.multinomial(scaledLast, 1);
+        const next = tf.multinomial(scaledLast, 2).squeeze().gather([1]).expandDims(0);
         // append to running sequence
-        const concatLayer = tf.layers.concatenate();
-        context = concatLayer.apply([context, next]);
-      }
-      return context;
-    });
-    return output;
+        return tf.concat([context, next], 1);
+      });
+    }
+    return context;
   }
 
   getWeights() {
@@ -161,5 +156,5 @@ optimizer.dispose();
 
 // decode and print results
 const cont = tf.zeros([1, 1], "int32");
-const batcharr = bgmodel.generate(cont, 200).arraySync()[0];
-console.log(decode(batcharr));
+const batcharr = await bgmodel.generate(cont, 200).arraySync();
+console.log(decode(batcharr[0]));

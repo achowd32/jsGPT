@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="styles/index.css">
+    <script src="scripts/activate.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"> </script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu/dist/tf-backend-webgpu.js"></script>
+    <script src="models/modelBigram.js" type="module" defer></script>
+  </head>
+
+  <body class="open-sans">
+    <h1> jsGPT Lab </h1>
+    <h3> Experiment with jsGPT, an implementation of NanoGPT written in TensorflowJS! </h3>
+    <!---- FORM ---->
+    <form id="hyperparam-form">
+      <div>
+        <label for="batch-size">Batch Size:</label>
+        <input id="batch-size" name="batch-size" type="text"/>
+      </div>
+      <div>
+        <label for="block-size">Block Size:</label>
+        <input id="block-size" name="block-size" type="text"/>
+      </div>
+      <input type="submit">
+    </form>
+
+    <!---- FORM ---->
+    <p> Your batch size is  <span id="batch-size-res"></span> </p>
+    <p> Your block size is  <span id="block-size-res"></span> </p>
+  </body>
+</html>

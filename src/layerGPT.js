@@ -16,7 +16,7 @@ const EVAL_INTERVAL = 100;
 const DROPOUT = 0.0;
 
 // read in data file
-const dataStr = fs.readFileSync('../data.txt').toString();
+const dataStr = fs.readFileSync('./data.txt').toString();
 
 // set up token encoder and decoder
 const charList = Array.from(new Set(dataStr)).sort();

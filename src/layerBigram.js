@@ -10,7 +10,7 @@ const BLOCK_SIZE = 32;
 const MAX_ITERS = 10000;
 
 // read in data file
-const dataStr = fs.readFileSync('../data.txt').toString();
+const dataStr = fs.readFileSync('./data.txt').toString();
 
 // set up token encoder and decoder
 const charList = Array.from(new Set(dataStr)).sort();
