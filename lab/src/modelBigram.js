@@ -70,6 +70,10 @@ class BigramLanguageModel {
   async load(filename){
     this.model = await tf.loadLayersModel(filename);
   }
+
+  dispose(){
+    this.model.dispose();
+  }
 }
 
 export { BigramLanguageModel };

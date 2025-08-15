@@ -2,7 +2,7 @@
 A basic implementation of NanoGPT written in TensorflowJS.
 
 ## Outline
-The following architectures have been written to run on the Node.js backend (using C++ bindings), and can be found in the `src/` directory:
+The following architectures have been written to run on the Node.js backend (using C++ bindings), and can be found in the `models/` directory:
 - `layerBigram.js`: the bigram model implemented using the custom layer API.
 - `modelBigram.js`: the bigram model implemented using the model API.
 - `layerGPT.js`: the NanoGPT model implemented using the custom layer API.

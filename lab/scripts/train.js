@@ -76,7 +76,7 @@ class dataLoader {
   }
 }
 
-async function train(hyperparams){
+async function train(hyperparams, lossDisplay = () => {}, sampleDisplay = () => {}){
   // setup backend; TODO: add try/catch for failures
   await tf.setBackend("webgpu");
 
@@ -94,14 +94,13 @@ async function train(hyperparams){
 
   // training loop
   for(let i = 0; i < maxIters; i++){
+    // output progress 
+    if (i % 1000 == 0){ await tf.nextFrame(); lossDisplay(i); }
+      
     tf.tidy(() => {
       // get batch
       const batch = dl.getBatch("train");
-      const xb = batch.x;
-      const yb = batch.y;
-      
-      // output progress 
-      if (i % 1000 == 0){ console.log(i); }
+      const xb = batch.x; const yb = batch.y;
       
       // get loss
       optimizer.minimize(() => { return bgmodel.loss(xb, yb); });
@@ -112,7 +111,7 @@ async function train(hyperparams){
   const cont = tf.zeros([1, 1], "int32");
   const gen = bgmodel.generate(cont, 200);
   const batcharr = await gen.array();
-  console.log(dl.decode(batcharr[0]));
+  sampleDisplay(dl.decode(batcharr[0]));
   
   // dispose
   optimizer.dispose();
