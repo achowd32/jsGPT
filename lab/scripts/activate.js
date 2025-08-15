@@ -1,8 +1,17 @@
+import { train } from './train.js'
+
 const form = document.getElementById("hyperparam-form");
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  const batchVal = form.elements['batch-size'].value;
-  const blockVal = form.elements['block-size'].value;
-  document.getElementById("batch-size-res").innerHTML = batchVal;
-  document.getElementById("block-size-res").innerHTML = blockVal;
+  const batchSizeVal = form.elements['batch-size'].value;
+  const blockSizeVal = form.elements['block-size'].value;
+  const maxItersVal = form.elements['max-iters'].value;
+  const learningRateVal = form.elements['learning-rate'].value;
+  const hyperparams = {
+    batchSize: parseInt(batchSizeVal),
+    blockSize: parseInt(blockSizeVal),
+    maxIters: parseInt(maxItersVal),
+    learningRate: parseFloat(learningRateVal)
+  };
+  train(hyperparams);
 });

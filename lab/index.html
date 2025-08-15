@@ -2,28 +2,33 @@
 <html>
   <head>
     <link rel="stylesheet" href="styles/index.css">
-    <script src="scripts/activate.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"> </script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu/dist/tf-backend-webgpu.js"></script>
   </head>
 
   <body class="open-sans">
+    <script src="scripts/activate.js" type="module" defer></script>
     <h1> jsGPT Lab </h1>
     <h3> Experiment with jsGPT, an implementation of NanoGPT written in TensorflowJS! </h3>
     <!---- FORM ---->
     <form id="hyperparam-form">
       <div>
         <label for="batch-size">Batch Size:</label>
-        <input id="batch-size" name="batch-size" type="text"/>
+        <input id="batch-size" name="batch-size" type="number" value="32"/>
       </div>
       <div>
         <label for="block-size">Block Size:</label>
-        <input id="block-size" name="block-size" type="text"/>
+        <input id="block-size" name="block-size" type="number" value="32"/>
+      </div>
+      <div>
+        <label for="max-iters">Max Iterations:</label>
+        <input id="max-iters" name="max-iters" type="number" value="1000"/>
+      </div>
+      <div>
+        <label for="learning-rate">Learning Rate:</label>
+        <input id="learning-rate" name="learning-rate" type="number" value="0.0001"/>
       </div>
       <input type="submit">
     </form>
-
-    <!---- FORM ---->
-    <script src="scripts/train.js" type="module" defer></script>
   </body>
 </html>

@@ -1,20 +1,19 @@
-// hyperparameters
-const BATCH_SIZE = 32;
-const BLOCK_SIZE = 32;
-const MAX_ITERS = 10000;
-
 // define bigram model
 class BigramLanguageModel {
-  constructor(vocabSize) {
+  constructor(vocabSize, hyper) {
+    // initialize properties
     this.vocabSize = vocabSize;
+    this.batchSize = hyper.batchSize;
+    this.blockSize = hyper.blockSize;
+
     // build the embedding layer
     this.embedding = tf.layers.embedding({
       inputDim: vocabSize,
       outputDim: vocabSize,
     });
 
-    // model input shape: [batch, block_size]
-    const input = tf.input({shape: [BLOCK_SIZE], dtype: 'int32'});
+    // initialize model
+    const input = tf.input({shape: [this.blockSize], dtype: 'int32'});
     const logits = this.embedding.apply(input);
     this.model = tf.model({inputs: input, outputs: logits});
   }
@@ -74,4 +73,3 @@ class BigramLanguageModel {
 }
 
 export { BigramLanguageModel };
-export { BLOCK_SIZE, BATCH_SIZE, MAX_ITERS };
