@@ -76,6 +76,23 @@ class dataLoader {
   }
 }
 
+async function estimateLoss(dl, model){
+  const out = {};
+  for(const split of ['train', 'val']){
+    let sum = 0;
+    for (let k = 0; k < 20; k++) {
+      const { x, y } = dl.getBatch(split);
+      const lossT = model.loss(x, y);
+      const lossNum = (await lossT.data())[0];
+      lossT.dispose(); x.dispose(); y.dispose();
+
+      sum += lossNum;
+    }
+    out[split] = sum / 20;
+  }
+  return out;
+}
+
 async function train(hyperparams, lossDisplay = () => {}, sampleDisplay = () => {}){
   // setup backend; TODO: add try/catch for failures
   await tf.setBackend("webgpu");
@@ -83,6 +100,7 @@ async function train(hyperparams, lossDisplay = () => {}, sampleDisplay = () => 
   // setup hyperparameters
   const learningRate = hyperparams.learningRate;
   const maxIters = hyperparams.maxIters;
+  const evalInterval = hyperparams.evalInterval;
 
   // read in data file and setup dataloader object
   const dataStr = await (await fetch('./data.txt')).text();
@@ -95,7 +113,11 @@ async function train(hyperparams, lossDisplay = () => {}, sampleDisplay = () => 
   // training loop
   for(let i = 0; i < maxIters; i++){
     // output progress 
-    if (i % 1000 == 0){ await tf.nextFrame(); lossDisplay(i); }
+    if (i % evalInterval == 0){
+      await tf.nextFrame();
+      const trainValLoss = await estimateLoss(dl, bgmodel);
+      lossDisplay(i, trainValLoss["train"].toFixed(4), trainValLoss["val"].toFixed(4));
+    }
       
     tf.tidy(() => {
       // get batch
@@ -106,7 +128,12 @@ async function train(hyperparams, lossDisplay = () => {}, sampleDisplay = () => 
       optimizer.minimize(() => { return bgmodel.loss(xb, yb); });
     });
   }
-   
+  
+  // output loss after the final training iteration
+  await tf.nextFrame();
+  const trainValLoss = await estimateLoss(dl, bgmodel);
+  lossDisplay(maxIters, trainValLoss["train"].toFixed(4), trainValLoss["val"].toFixed(4));
+
   // decode and print results
   const cont = tf.zeros([1, 1], "int32");
   const gen = bgmodel.generate(cont, 200);

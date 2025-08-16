@@ -26,3 +26,7 @@ p {
   margin-top: 0;
 }
 
+#no-margin {
+  margin: 0;
+}
+

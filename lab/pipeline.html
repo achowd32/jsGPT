@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="styles/faq.css">
+  </head>
+
+  <body class="open-sans">
+    <h2> How does tokenization work? </h2>
+    <p> Each unique character in the training data is simply mapped to a unique token. For instance, 'a' might be mapped to the token 1, 'b' might be mapped to the token 2, etc. </p>
+    <h2> What is each hyperparameter? </h2>
+    <p id="no-margin"> Batch Size: how many batches of data is the model fed during a single iteration.</p>
+    <p id="no-margin"> Block Size: how many tokens are included in a single batch of data.</p>
+    <p id="no-margin"> Learning Rate: how much to adjust model weights during a single training iteration.</p>
+    <p id="no-margin"> Eval Interval: how many training iteration before we log the model train and validation loss. Note that this is not a "true" hyperparameter, and does not impact training.</p>
+    <p> Max Iterations: how many iterations to train the model for.</p>
+    <h2> I'm still confused. </h2>
+    <p> Check out Andrej Karpathy's excellent <a href="https://youtu.be/kCc8FmEb1nY?si=g1R5rPJPDT5fwPpL">video</a> on building NanoGPT from scratch, which was a major source of inspiration for this project! </p>
+  </body>
+</html>

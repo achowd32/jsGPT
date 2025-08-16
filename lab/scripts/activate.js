@@ -7,9 +7,9 @@ function clear(){
   sampleDiv.innerHTML =  '';
 }
 
-function displayLoss(loss){
+function displayLoss(i, trainLoss, valLoss){
   const lossDiv = document.getElementById("loss-display");
-  lossDiv.innerHTML +=  `<p> current iteration is ${loss} </p>`;
+  lossDiv.innerHTML +=  `<p>At iteration ${i}: train loss — ${trainLoss}, validation loss — ${valLoss}. </p>`;
 }
 
 function displaySample(sample){
@@ -25,15 +25,17 @@ form.addEventListener("submit", (event) => {
   // get hyperparameter values
   const batchSizeVal = form.elements['batch-size'].value;
   const blockSizeVal = form.elements['block-size'].value;
-  const maxItersVal = form.elements['max-iters'].value;
   const learningRateVal = form.elements['learning-rate'].value;
+  const evalItvlVal = form.elements['eval-itvl'].value;
+  const maxItersVal = form.elements['max-iters'].value;
 
   // define hyperparameter object
   const hyperparams = {
     batchSize: parseInt(batchSizeVal),
     blockSize: parseInt(blockSizeVal),
+    learningRate: parseFloat(learningRateVal),
+    evalInterval: parseInt(evalItvlVal),
     maxIters: parseInt(maxItersVal),
-    learningRate: parseFloat(learningRateVal)
   };
 
   // clear output divs
