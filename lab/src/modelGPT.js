@@ -233,7 +233,7 @@ function createGPT() {
 
 // define GPT language model
 class GPTLanguageModel {
-  constructor(hyperparams){
+  constructor(vocabSizeVal, hyperparams){
     this.vocabSize = vocabSizeVal;
     this.blockSize = BLOCK_SIZE;
     this.gptModel = createGPT();
