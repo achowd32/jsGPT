@@ -1,72 +1,3 @@
-#!/usr/bin/env node
-import '@tensorflow/tfjs-node';
-import * as tf from '@tensorflow/tfjs';
-import * as fs from 'fs';
-
-// hyperparameters
-const BATCH_SIZE = 12;
-const BLOCK_SIZE = 64;
-const MAX_ITERS = 1000;
-const N_EMBD = 128;
-const N_LAYER = 4;
-const N_HEAD = 4;
-const HEAD_SIZE = 16;
-const LEARNING_RATE = 0.0003;
-const EVAL_INTERVAL = 100;
-const DROPOUT = 0.0;
-
-// read in data file
-const dataStr = fs.readFileSync('../data.txt').toString();
-
-// set up token encoder and decoder
-const charList = Array.from(new Set(dataStr)).sort();
-const vocabSizeVal = charList.length;
-const stoi = new Map(charList.map((val, ind) => [val, ind]));
-const itos = new Map(charList.map((val, ind) => [ind, val]));
-function encode(str){
-  return Array.from(str).map(c => stoi.get(c));
-}
-function decode(toks){
-  return toks.map(i => itos.get(i)).join('');
-}
-
-// set up training and validation data
-const dataTensor = tf.tensor(encode(dataStr), undefined, "int32");
-const trainSize = Math.round(0.9 * dataTensor.size);
-const valSize = dataTensor.size - trainSize;
-
-const trainTensor = dataTensor.slice([0], [trainSize]);
-const valTensor = dataTensor.slice([trainSize], [valSize]);
-
-// set up data loader
-function getBatch(split){
-  // establish which data to use
-  let data = trainTensor;
-  if(split === "val"){
-    data = valTensor;
-  }
-  
-  // indices to sample from
-  let minInd = 0;
-  let maxInd = data.size - BLOCK_SIZE; 
-  const randInds = tf.randomUniform([BATCH_SIZE], minInd, maxInd, "int32").arraySync();
-
-  // get samples
-  const xRows = [];
-  const yRows = [];
-  for(let i = 0; i < BATCH_SIZE; i++){
-    let curSplit = randInds[i];
-    let xTensor = data.slice([curSplit], [BLOCK_SIZE]);
-    let yTensor = data.slice([curSplit + 1], [BLOCK_SIZE]);
-    xRows.push(xTensor);
-    yRows.push(yTensor);
-  }
-  
-  // use stack to convert to 2D tensor
-  const xVal = tf.stack(xRows);
-  const yVal = tf.stack(yRows);
-  return {x: xVal, y: yVal};
-}
 // ------------------- LAYER DEFINITIONS ------------------------
 
 // layer to perform the scaling operation in Head
@@ -162,14 +93,6 @@ tf.serialization.registerClass(PositionalEmbedding);
 
 // ------------------- MODEL DEFINITIONS ------------------------
 
-// define function that returns Identity layer as a tf.model
-// can be used to replace the time intensive layerNorm operation
-function createIdentity() {
-  const input = tf.input({shape: [null, N_EMBD]});
-  // identity function - just return the input as output
-  return tf.model({inputs: input, outputs: input});
-}
-
 // define function that returns a LayerNorm layer as a tf.model
 function createLayerNorm() {
   const input = tf.input({shape: [null, N_EMBD]});
@@ -263,8 +186,6 @@ function createBlock(nHead) {
   // create layerNorm layers, or use the Identity layer to avoid layerNorm
   const ln1 = createLayerNorm();
   const ln2 = createLayerNorm();
-  //const ln1 = createIdentity();
-  //const ln2 = createIdentity();
 
   // perform computations with residual
   const ln1Out = ln1.apply(input);
@@ -312,7 +233,7 @@ function createGPT() {
 
 // define GPT language model
 class GPTLanguageModel {
-  constructor(){
+  constructor(hyperparams){
     this.vocabSize = vocabSizeVal;
     this.blockSize = BLOCK_SIZE;
     this.gptModel = createGPT();
@@ -379,33 +300,4 @@ class GPTLanguageModel {
   getClassName() { return 'GPTLanguageModel'; }
 }
 
-// ------------------------- TRAINING LOOP -----------------------------
-
-// define model and optimizer
-const gptmodel = new GPTLanguageModel();
-const optimizer = tf.train.adam(LEARNING_RATE);
-
-// training loop
-for(let i = 0; i < MAX_ITERS; i++){
-  // get batch
-  const {x, y} = getBatch("train");
-  
-  // get loss
-  optimizer.minimize(() => {
-    const loss = gptmodel.loss(x, y);
-    const lossArr = loss.arraySync();
-    if(i % EVAL_INTERVAL == 0) {console.log(`Loss at iteration ${i}: ${lossArr}`);}
-    return loss;
-  });
-
-  x.dispose();
-  y.dispose();
-}
-
-// dispose of optimizer
-optimizer.dispose();
-
-// decode and print results from newModel
-const cont = tf.zeros([1, 1], "int32");
-const batcharr = gptmodel.generate(cont, 500).arraySync()[0];
-console.log(decode(batcharr));
+export { GPTLanguageModel };
