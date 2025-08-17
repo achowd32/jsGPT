@@ -76,7 +76,7 @@ async function train(hyperparams, modelType){
 
   // decode and print results
   const cont = tf.zeros([1, 1], "int32");
-  const gen = model.generate(cont, 200);
+  const gen = await model.generate(cont, 200);
   const batcharr = await gen.array();
   displaySample(dl.decode(batcharr[0]));
   

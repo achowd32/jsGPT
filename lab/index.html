@@ -16,19 +16,19 @@
     <form id="gpt-form" class="form">
       <div>
         <label for="batch-size">Batch Size:</label>
-        <input id="batch-size" name="batch-size" type="number" value="32"/>
+        <input id="batch-size" name="batch-size" type="number" value="12"/>
       </div>
       <div>
         <label for="block-size">Block Size:</label>
-        <input id="block-size" name="block-size" type="number" value="32"/>
+        <input id="block-size" name="block-size" type="number" value="64"/>
       </div>
       <div>
         <label for="learning-rate">Learning Rate:</label>
-        <input id="learning-rate" name="learning-rate" type="number" value="0.0001"/>
+        <input id="learning-rate" name="learning-rate" type="number" value="0.0003"/>
       </div>
       <div>
         <label for="eval-itvl">Eval Interval:</label>
-        <input id="eval-itvl" name="eval-itvl" type="number" value="1000"/>
+        <input id="eval-itvl" name="eval-itvl" type="number" value="100"/>
       </div>
       <div>
         <label for="n-embd">Number of Embeddings:</label>
@@ -52,7 +52,7 @@
       </div>
       <div>
         <label for="max-iters">Max Iterations:</label>
-        <input id="max-iters" name="max-iters" type="number" value="10000"/>
+        <input id="max-iters" name="max-iters" type="number" value="200"/>
       </div>
       <input type="submit" value="TRAIN" id="train-button">
     </form>
