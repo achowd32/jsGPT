@@ -259,16 +259,12 @@ class GPTLanguageModel {
     // create feed forward layer
     const ffwd = this.#createFeedForward();
 
-    // create layerNorm layers, or use the Identity layer to avoid layerNorm
-    const ln1 = this.#createLayerNorm();
-    const ln2 = this.#createLayerNorm();
-
     // perform computations with residual
-    const ln1Out = ln1.apply(input);
+    const ln1Out = tf.layers.layerNormalization().apply(input);
     const saOut = sa.apply(ln1Out);
     const residual1 = tf.layers.add().apply([input, saOut]); // input + sa(ln1(input))
     
-    const ln2Out = ln2.apply(residual1);
+    const ln2Out = tf.layers.layerNormalization().apply(residual1);
     const ffwdOut = ffwd.apply(ln2Out);
     const residual2 = tf.layers.add().apply([residual1, ffwdOut]); // residual1 + ffwd(ln2(residual1))
 

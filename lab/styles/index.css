@@ -31,6 +31,18 @@ p {
   margin-top: 1em;
 }
 
+.form-div{
+  display: inline-block;
+}
+
+.form-subtitle {
+  margin-top: 1em;
+}
+
+.form-row {
+  margin-top: 1em;
+}
+
 #train-button {
   color: white;
   background: black;
