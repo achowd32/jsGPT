@@ -35,6 +35,10 @@ gptForm.addEventListener("submit", (event) => {
   // clear output divs
   clear();
 
+  // output training notes
+  const notesDisplay = document.getElementById("notes-display");
+  notesDisplay.innerHTML += "<p> Started training! </p>";
+
   // train and output
   train(hyperparams, "nanogpt");
 });

@@ -43,6 +43,12 @@ p {
   margin-top: 1em;
 }
 
+.form-wrapper {
+  border-style: solid;
+  padding: 10px;
+  display: inline-block;
+}
+
 #train-button {
   color: white;
   background: black;

@@ -4,6 +4,7 @@
     <link rel="stylesheet" href="styles/index.css">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"> </script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu/dist/tf-backend-webgpu.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   </head>
 
   <body class="open-sans">
@@ -11,75 +12,79 @@
     <h1> jsGPT Lab </h1>
     <h3> Experiment with jsGPT, an implementation of NanoGPT written in TensorflowJS! </h3>
     <p> Tune the hyperparameters below to your liking and hit "train" to train our NanoGPT model on Shakespeare's <i><a href="./data.txt">The Tragedy of Coriolanus</a></i>. Over time, you should see a fairly significant improvement in output quality, as the model learns to mimic the Shakespearean writing style. If you'd like to learn more about the training pipeline and the role of each hyperparameter, see <a href="./pipeline.html">this</a> page.</p>
-    <form id="gpt-form" class="form">
-      <h4 class="form-subtitle"> Architectural Hyperparameters </h4>
+    <br>
+    <div class="form-wrapper">
+      <h3> Inputs </h3> <br>
+      <h4> Architectural Hyperparameters </h4>
       <p> Parameters that influence the model's internal architecture </p>
-      <!--- ---->
-      <div class="form-row">
-        <div class="form-div">
-          <label for="block-size">Block Size:</label> <br>
-          <input id="block-size" name="block-size" type="number" value="64"/>
+      <form id="gpt-form" class="form">
+        <!--- ---->
+        <div class="form-row">
+          <div class="form-div">
+            <label for="block-size">Block Size:</label> <br>
+            <input id="block-size" name="block-size" type="number" value="64"/>
+          </div>
+          <!--- ---->
+          <div class="form-div">
+            <label for="n-embd"># of Embeddings:</label> <br>
+            <input id="n-embd" name="n-embd" type="number" value="128"/>
+          </div>
+          <!--- ---->
+          <div class="form-div">
+            <label for="n-layer"># of Transformers:</label> <br>
+            <input id="n-layer" name="n-layer" type="number" value="4"/>
+          </div>
         </div>
         <!--- ---->
-        <div class="form-div">
-          <label for="n-embd"># of Embeddings:</label> <br>
-          <input id="n-embd" name="n-embd" type="number" value="128"/>
+        <div class="form-row">
+          <div class="form-div">
+            <label for="n-head"># of Heads:</label> <br>
+            <input id="n-head" name="n-head" type="number" value="4"/>
+          </div>
+          <!--- ---->
+          <div class="form-div">
+            <label for="head-size">Head Size:</label> <br>
+            <input id="head-size" name="head-size" type="number" value="16"/>
+          </div>
+          <!--- ---->
+          <div class="form-div">
+            <label for="dropout">Dropout:</label> <br>
+            <input id="dropout" name="dropout" type="number" value="0.0"/>
+          </div>
         </div>
-        <!--- ---->
-        <div class="form-div">
-          <label for="n-layer"># of Transformers:</label> <br>
-          <input id="n-layer" name="n-layer" type="number" value="4"/>
-        </div>
-      </div>
-      <!--- ---->
-      <div class="form-row">
-        <div class="form-div">
-          <label for="n-head"># of Heads:</label> <br>
-          <input id="n-head" name="n-head" type="number" value="4"/>
-        </div>
-        <!--- ---->
-        <div class="form-div">
-          <label for="head-size">Head Size:</label> <br>
-          <input id="head-size" name="head-size" type="number" value="16"/>
-        </div>
-        <!--- ---->
-        <div class="form-div">
-          <label for="dropout">Dropout:</label> <br>
-          <input id="dropout" name="dropout" type="number" value="0.0"/>
-        </div>
-      </div>
 
-      <h4 class="form-subtitle"> Training Hyperparameters </h4>
-      <p> Parameters that influence the model's training </p>
-      <div class="form-row">
-        <!--- ---->
-        <div class="form-div">
-          <label for="batch-size">Batch Size:</label> <br>
-          <input id="batch-size" name="batch-size" type="number" value="12"/>
+        <h4 class="form-subtitle"> Training Hyperparameters </h4>
+        <p> Parameters that influence the model's training </p>
+        <div class="form-row">
+          <!--- ---->
+          <div class="form-div">
+            <label for="batch-size">Batch Size:</label> <br>
+            <input id="batch-size" name="batch-size" type="number" value="12"/>
+          </div>
+          <!--- ---->
+          <div class="form-div">
+            <label for="learning-rate">Learning Rate:</label> <br>
+            <input id="learning-rate" name="learning-rate" type="number" value="0.0003"/>
+          </div>
+          <!--- ---->
+          <div class="form-div">
+            <label for="eval-itvl">Eval Interval:</label> <br>
+            <input id="eval-itvl" name="eval-itvl" type="number" value="100"/>
+          </div>
         </div>
+        <div class="form-row">
+          <!--- ---->
+          <div class="form-div">
+            <label for="max-iters">Max Iterations:</label> <br>
+            <input id="max-iters" name="max-iters" type="number" value="200"/>
+          </div>
+        </div> <br>
         <!--- ---->
-        <div class="form-div">
-          <label for="learning-rate">Learning Rate:</label> <br>
-          <input id="learning-rate" name="learning-rate" type="number" value="0.0003"/>
-        </div>
-        <!--- ---->
-        <div class="form-div">
-          <label for="eval-itvl">Eval Interval:</label> <br>
-          <input id="eval-itvl" name="eval-itvl" type="number" value="100"/>
-        </div>
-      </div>
-      <div class="form-row">
-        <!--- ---->
-        <div class="form-div">
-          <label for="max-iters">Max Iterations:</label> <br>
-          <input id="max-iters" name="max-iters" type="number" value="200"/>
-        </div>
-      </div>
-      <!--- ---->
-      <h4 class="form-subtitle"> Train </h4>
-      <p> Train your model! </p>
-      <input type="submit" value="TRAIN" id="train-button">
-    </form>
+        <input type="submit" value="TRAIN" id="train-button">
+      </form>
+    </div>
+    <div id="notes-display">
+    </div>
     <div id="loss-display">
     </div>
     <div id="sample-display">
