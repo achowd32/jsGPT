@@ -1,9 +1,11 @@
 import { train } from './train.js'
-import { clear, displayNotes } from './display.js'
+import { clear, displayNotes, updateStyle } from './display.js'
+
+const state = {model: null};
 
 // handle form
 const bigramForm = document.getElementById("bigram-form");
-bigramForm.addEventListener("submit", (event) => {
+bigramForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   // get hyperparameter values
@@ -24,10 +26,25 @@ bigramForm.addEventListener("submit", (event) => {
 
   // clear output divs
   clear();
+  state.model = null;
+  updateStyle(state);
 
   // output training notes
-  displayNotes();
+  let note = "Started training! Please note that the page may be less responsive during the training process."
+  displayNotes(note);
 
   // train and output
-  train(hyperparams, "bigram");
+  state.model = await train(hyperparams, "bigram");
+
+  // update style
+  updateStyle(state);
+});
+
+// handle download button
+document.getElementById("download-button").addEventListener("click", async () => {
+  // if no model exists, don't do anything
+  if(state.model == null){ return; }
+
+  // download
+  await state.model.save("myModel");
 });

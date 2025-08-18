@@ -23,4 +23,15 @@ function displaySample(sample){
   sampleDiv.innerHTML +=  `<p>${sample}</p>`;
 }
 
-export { clear, displayNotes, displayLoss, displaySample };
+function updateStyle(state) {
+  const downloadBtn = document.getElementById("download-button");
+  if (state.model == null){
+    downloadBtn.style.cursor = "default";
+    downloadBtn.style.background = "grey";
+  } else {
+    downloadBtn.style.cursor = "pointer";
+    downloadBtn.style.background = "black";
+  } 
+}
+
+export { clear, displayNotes, displayLoss, displaySample, updateStyle };

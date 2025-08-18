@@ -6,8 +6,7 @@
   font-optical-sizing: auto;
   font-weight: 500;
   font-style: normal;
-  font-variation-settings:
-    "wdth" 100;
+  font-variation-settings: "wdth" 100;
 }
 
 head {
@@ -45,7 +44,6 @@ p {
 .input-wrapper {
   border-style: solid;
   padding: 10px;
-  display: inline-block;
   flex: 0 0 450px;
 }
 
@@ -70,8 +68,6 @@ p {
 
 #outputs {
   flex: 1 1 auto;
-  overflow-x: auto;
-  display: inline-block;
   border-style: solid;
   padding: 10px;
 }
@@ -81,6 +77,13 @@ p {
 }
 
 /* ------ WRAPPER ------ */
+
+@media (max-width: 900px) {
+  .flex-wrapper {
+    flex-direction: column; /* instead of row */
+    height: 1000px;
+  }
+}
 
 .flex-wrapper{
   /* general properties */

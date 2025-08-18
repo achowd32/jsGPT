@@ -1,27 +1,17 @@
 import { train } from './train.js'
-import { clear, displayNotes } from './display.js'
+import { clear, displayNotes, updateStyle } from './display.js'
 /* TODO:
 ADD BACKGROUND CHECK
 ADD WEB WORKERS TO KEEP PAGE RESPONSIVE
 ADD ABILITY TO CONTINUE TRAINING MODEL
 UPDATE FAQ
 ADD RESPONSIVE DESIGN
+REFACTOR ACTIVATE
 ADD ABILITY TO CANCEL TRAINING RUN
 PREVENT USERS FROM RUNNING SEVERAL MODELS
 */
 
 const state = {model: null};
-
-function updateStyle() {
-  const downloadBtn = document.getElementById("download-button");
-  if (state.model == null){
-    downloadBtn.style.cursor = "default";
-    downloadBtn.style.background = "grey";
-  } else {
-    downloadBtn.style.cursor = "pointer";
-    downloadBtn.style.background = "black";
-  } 
-}
 
 // handle GPT form
 const gptForm = document.getElementById("gpt-form");
@@ -57,7 +47,7 @@ gptForm.addEventListener("submit", async (event) => {
   // clear output and reset state
   clear();
   state.model = null;
-  updateStyle();
+  updateStyle(state);
 
   // output training notes
   let note = "Started training! Please note that the page may be less responsive during the training process."
@@ -67,7 +57,7 @@ gptForm.addEventListener("submit", async (event) => {
   state.model = await train(hyperparams, "nanogpt");
 
   // update style
-  updateStyle();
+  updateStyle(state);
 });
 
 // handle download button
