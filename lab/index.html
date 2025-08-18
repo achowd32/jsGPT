@@ -11,7 +11,9 @@
   <body class="open-sans">
     <h1> jsGPT Lab </h1>
     <h3> Experiment with jsGPT, an implementation of NanoGPT written in TensorflowJS! </h3>
-    <p> Tune the hyperparameters below to your liking and hit "train" to train our NanoGPT model on Shakespeare's <i><a href="./data.txt">The Tragedy of Coriolanus</a></i>. Over time, you should see a fairly significant improvement in output quality, as the model learns to mimic the Shakespearean writing style. If you'd like to learn more about the training pipeline and the role of each hyperparameter, see <a href="./pipeline.html">this</a> page.</p>
+    <p> Tune the hyperparameters below to your liking and hit "train" to train our NanoGPT model on Shakespeare's <i><a href="./data.txt">The Tragedy of Coriolanus</a></i>. Over time, you should see a fairly significant improvement in output quality, as the model learns to mimic the Shakespearean writing style. </p>
+    <br>
+    <p> Note: please use a browser that supports WebGPU, WebGL, or WASM. This model runs on your own machine, NOT a backend — don't go too crazy with the hyperparameters. </p>
     <br>
     <div class="flex-wrapper">
       <div class="input-wrapper">
@@ -75,7 +77,7 @@
             </div>
           </div> <br>
           <!--- BUTTONS ---->
-          <input type="submit" value="TRAIN" id="train-button" class="btn">
+          <button type="submit" id="train-button" class="btn"> TRAIN </button>
           <button type="button" id="download-button" class="btn"> DOWNLOAD </button>
         </form>
       </div>
@@ -87,6 +89,7 @@
       </div>
     </div>
     <br>
+    <p>Confused about the <a href="./pipeline.html">hyperparameters</a>?</p>
     <p> Want to <a href="./bigram.html">try</a> a simpler model? </p>
     <p> <a href="./faq.html">What</a> is jsGPT? </p>
   </body>

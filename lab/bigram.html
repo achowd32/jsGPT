@@ -11,7 +11,9 @@
   <body class="open-sans">
     <h1> jsGPT Lab </h1>
     <h3> Experiment with a simple bigram model, implemented in TensorflowJS! </h3>
-    <p> Tune the hyperparameters below to your liking and hit "train" to train our bigram model on Shakespeare's <i><a href="./data.txt">The Tragedy of Coriolanus</a></i>. You'll see model outputs improve slightly to mimic the Shakespearean writing style. If you'd like to learn more about the training pipeline and the role of each hyperparameter, see <a href="./pipeline.html">this</a> page.</p>
+    <p> Tune the hyperparameters below to your liking and hit "train" to train our bigram model on Shakespeare's <i><a href="./data.txt">The Tragedy of Coriolanus</a></i>. You'll see model outputs improve slightly to mimic the Shakespearean writing style.</p>
+    <br>
+    <p> Note: please use a browser that supports WebGPU, WebGL, or WASM. This model runs on your own machine, NOT a backend — don't go too crazy with the hyperparameters. </p>
     <br>
     <!---- FORM ---->
     <div class="flex-wrapper">
@@ -47,7 +49,7 @@
             </div>
           </div> <br>
           <!--- BUTTONS ---->
-          <input type="submit" value="TRAIN" id="train-button" class="btn">
+          <button type="submit" id="train-button" class="btn"> TRAIN </button>
           <button type="button" id="download-button" class="btn"> DOWNLOAD </button>
         </form>
       </div>
@@ -59,6 +61,7 @@
       </div>
     </div>
     <br>
+    <p>Confused about the <a href="./pipeline.html">hyperparameters</a>?</p>
     <p> Want to <a href="./index.html">try</a> a more complex model? </p>
     <p> <a href="./faq.html">What</a> is jsGPT? </p>
     </div>

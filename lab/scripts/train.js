@@ -1,7 +1,7 @@
 import { dataLoader } from './dataLoader.js'
 import { BigramLanguageModel } from '../src/modelBigram.js'
 import { GPTLanguageModel } from '../src/modelGPT.js'
-import { displayLoss, displaySample } from './display.js'
+import { displayNotes, displayLoss, displaySample } from './display.js'
 
 function initModel(dl, hyperparams, modelType){
   if (modelType === "bigram"){
@@ -61,7 +61,18 @@ async function trainLoop(dl, model, optimizer, hyperparams){
 
 async function train(hyperparams, modelType){
   // setup backend; TODO: add try/catch for failures
-  await tf.setBackend("webgpu");
+  try {
+    try {
+      await tf.setBackend('webgpu');
+      displayNotes("Using WebGPU backend.");
+    } catch {
+      await tf.setBackend('webgl');
+      displayNotes("Using WebGL backend, use a browser that supports WebGPU for even better performance.");
+    }
+  } catch {
+    await tf.setBackend('wasm');
+    displayNotes("Using WASM (Web Assembly) backend, use a browser that supports WebGPU or WebGL for even better performance.");
+  }
 
   // read in data file and setup dataloader object
   const dataStr = await (await fetch('./data.txt')).text();

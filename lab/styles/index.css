@@ -9,6 +9,12 @@
   font-variation-settings: "wdth" 100;
 }
 
+input, select {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
 head {
   margin: 0;
 }
@@ -70,6 +76,7 @@ p {
   flex: 1 1 auto;
   border-style: solid;
   padding: 10px;
+  overflow-y: auto;
 }
 
 #sample-display {
@@ -81,13 +88,21 @@ p {
 @media (max-width: 900px) {
   .flex-wrapper {
     flex-direction: column; /* instead of row */
-    height: 1000px;
+  }
+
+  .input-wrapper {
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 900px) {
+  .flex-wrapper {
+    height: 470px;
   }
 }
 
 .flex-wrapper{
   /* general properties */
-  height: 470px;
   display: flex;
   gap: 20px;
 
