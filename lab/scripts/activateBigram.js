@@ -1,5 +1,5 @@
 import { train } from './train.js'
-import { clear } from './display.js'
+import { clear, displayNotes } from './display.js'
 
 // handle form
 const bigramForm = document.getElementById("bigram-form");
@@ -24,6 +24,9 @@ bigramForm.addEventListener("submit", (event) => {
 
   // clear output divs
   clear();
+
+  // output training notes
+  displayNotes();
 
   // train and output
   train(hyperparams, "bigram");

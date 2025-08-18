@@ -4,40 +4,61 @@
     <link rel="stylesheet" href="styles/index.css">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"> </script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu/dist/tf-backend-webgpu.js"></script>
+    <script src="scripts/activateBigram.js" type="module" defer></script>
   </head>
 
   <body class="open-sans">
-    <script src="scripts/activateBigram.js" type="module" defer></script>
     <h1> jsGPT Lab </h1>
     <h3> Experiment with a simple bigram model, implemented in TensorflowJS! </h3>
     <p> Tune the hyperparameters below to your liking and hit "train" to train our bigram model on Shakespeare's <i><a href="./data.txt">The Tragedy of Coriolanus</a></i>. You'll see model outputs improve slightly to mimic the Shakespearean writing style. If you'd like to learn more about the training pipeline and the role of each hyperparameter, see <a href="./pipeline.html">this</a> page.</p>
+    <br>
     <!---- FORM ---->
-    <form id="bigram-form" class="form">
-      <div>
-        <label for="batch-size">Batch Size:</label>
-        <input id="batch-size" name="batch-size" type="number" value="32"/>
+    <div class="flex-wrapper">
+      <div class="input-wrapper">
+        <h3> Inputs </h3> <br>
+        <form id="bigram-form" class="form">
+          <h4> Hyperparameters </h4>
+          <p> The bigram model's architecture is predetermined by the tokenization scheme, so the following hyperparameters only impact the model's training.</p>
+          <!--- ROW 1 ---->
+          <div class="form-row">
+            <div class="form-block">
+              <label for="block-size">Context Size:</label> <br>
+              <input id="block-size" name="block-size" type="number" value="32"/>
+            </div>
+            <div class="form-block">
+              <label for="batch-size">Batch Size:</label> <br>
+              <input id="batch-size" name="batch-size" type="number" value="32"/>
+            </div>
+            <div class="form-block">
+              <label for="learning-rate">Learning Rate:</label> <br>
+              <input id="learning-rate" name="learning-rate" type="number" value="0.0001"/>
+            </div>
+          </div>
+          <!--- TRAINING ROW 1 ---->
+          <div class="form-row">
+            <div class="form-block">
+              <label for="eval-itvl">Eval Interval:</label> <br>
+              <input id="eval-itvl" name="eval-itvl" type="number" value="1000"/>
+            </div>
+            <div class="form-block">
+              <label for="max-iters">Max Iterations:</label> <br>
+              <input id="max-iters" name="max-iters" type="number" value="10000"/>
+            </div>
+          </div> <br>
+          <!--- BUTTONS ---->
+          <input type="submit" value="TRAIN" id="train-button">
+        </form>
       </div>
-      <div>
-        <label for="block-size">Block Size:</label>
-        <input id="block-size" name="block-size" type="number" value="32"/>
+      <div id="outputs">
+        <h3> Outputs </h3> <br>
+        <div id="notes-display"> </div>
+        <div id="loss-display"> </div>
+        <div id="sample-display"> </div>
       </div>
-      <div>
-        <label for="learning-rate">Learning Rate:</label>
-        <input id="learning-rate" name="learning-rate" type="number" value="0.0001"/>
-      </div>
-      <div>
-        <label for="eval-itvl">Eval Interval:</label>
-        <input id="eval-itvl" name="eval-itvl" type="number" value="1000"/>
-      </div>
-      <div>
-        <label for="max-iters">Max Iterations:</label>
-        <input id="max-iters" name="max-iters" type="number" value="10000"/>
-      </div>
-      <input type="submit" value="TRAIN" id="train-button">
-    </form>
-    <div id="loss-display">
     </div>
-    <div id="sample-display">
+    <br>
+    <p> Want to <a href="./index.html">try</a> a more complex model? </p>
+    <p> <a href="./faq.html">What</a> is jsGPT? </p>
     </div>
   </body>
 </html>

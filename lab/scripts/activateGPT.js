@@ -1,6 +1,16 @@
 import { train } from './train.js'
-import { clear } from './display.js'
-
+import { clear, displayNotes } from './display.js'
+/* TODO:
+ADD BACKGROUND CHECK
+ADD WEB WORKERS TO KEEP PAGE RESPONSIVE
+ADD ABILITY TO SAVE MODEL WEIGHTS
+ADD ABILITY TO CONTINUE TRAINING MODEL
+UPDATE FAQ
+UPDATE EXPLANATIONS
+ADD RESPONSIVE DESIGN
+ADD ABILITY TO CANCEL TRAINING RUN
+PREVENT USERS FROM RUNNING SEVERAL MODELS
+*/
 // handle GPT form
 const gptForm = document.getElementById("gpt-form");
 gptForm.addEventListener("submit", (event) => {
@@ -36,8 +46,7 @@ gptForm.addEventListener("submit", (event) => {
   clear();
 
   // output training notes
-  const notesDisplay = document.getElementById("notes-display");
-  notesDisplay.innerHTML += "<p> Started training! </p>";
+  displayNotes();
 
   // train and output
   train(hyperparams, "nanogpt");

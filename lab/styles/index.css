@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap');
-
+/* TODO: RESPONSIVE DESIGN */
+/* ------ GENERAL ------ */
 .open-sans {
   font-family: "Open Sans", sans-serif;
   font-optical-sizing: auto;
@@ -27,11 +28,9 @@ p {
   margin-bottom: 0;
 }
 
-.form {
-  margin-top: 1em;
-}
+/* ------ INPUT FORM ------ */
 
-.form-div{
+.form-block{
   display: inline-block;
 }
 
@@ -43,10 +42,11 @@ p {
   margin-top: 1em;
 }
 
-.form-wrapper {
+.input-wrapper {
   border-style: solid;
   padding: 10px;
   display: inline-block;
+  flex: 0 0 450px;
 }
 
 #train-button {
@@ -56,4 +56,32 @@ p {
   font-size: 1em;
   padding: 0.3em;
   cursor: pointer;
+}
+
+/* ------ OUTPUT SECTION ------ */
+
+#outputs {
+  flex: 1 1 auto;
+  overflow-x: auto;
+  display: inline-block;
+  border-style: solid;
+  padding: 10px;
+}
+
+#sample-display {
+  white-space: pre-wrap;
+}
+
+/* ------ WRAPPER ------ */
+
+.flex-wrapper{
+  /* general properties */
+  height: 470px;
+  display: flex;
+  gap: 20px;
+
+  /* overflow behaviour */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
 }
