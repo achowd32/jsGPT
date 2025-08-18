@@ -1,12 +1,19 @@
 import { train } from './train.js'
 import { clear, displayNotes, updateStyle } from './display.js'
 
-const state = {model: null};
+const state = {model: null, training: false};
 
 // handle form
 const bigramForm = document.getElementById("bigram-form");
 bigramForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (state.training){ return; }
+
+  // update state and display
+  state.training = true;
+  state.model = null;
+  clear();
+  updateStyle(state);
 
   // get hyperparameter values
   const batchSizeVal = bigramForm.elements['batch-size'].value;
@@ -24,11 +31,6 @@ bigramForm.addEventListener("submit", async (event) => {
     maxIters: parseInt(maxItersVal),
   };
 
-  // clear output divs
-  clear();
-  state.model = null;
-  updateStyle(state);
-
   // output training notes
   let note = "Started training! Please note that the page may be less responsive during the training process."
   displayNotes(note);
@@ -37,6 +39,7 @@ bigramForm.addEventListener("submit", async (event) => {
   state.model = await train(hyperparams, "bigram");
 
   // update style
+  state.training = false;
   updateStyle(state);
 });
 

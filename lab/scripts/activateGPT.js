@@ -2,19 +2,25 @@ import { train } from './train.js'
 import { clear, displayNotes, updateStyle } from './display.js'
 /* TODO:
 ADD WEB WORKERS TO KEEP PAGE RESPONSIVE
-PREVENT USERS FROM RUNNING SEVERAL MODELS
 ADD ABILITY TO CONTINUE TRAINING MODEL
 UPDATE FAQ
 REFACTOR ACTIVATE
 ADD ABILITY TO CANCEL TRAINING RUN
 */
 
-const state = {model: null};
+const state = {model: null, training: false};
 
 // handle GPT form
 const gptForm = document.getElementById("gpt-form");
 gptForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (state.training){ return; }
+
+  // update state and display
+  state.training = true;
+  state.model = null;
+  clear();
+  updateStyle(state);
 
   // get hyperparameter values
   const batchSizeVal = gptForm.elements['batch-size'].value;
@@ -42,11 +48,6 @@ gptForm.addEventListener("submit", async (event) => {
     maxIters: parseInt(maxItersVal),
   };
 
-  // clear output and reset state
-  clear();
-  state.model = null;
-  updateStyle(state);
-
   // output training notes
   let note = "Started training! Please note that the page may be less responsive during the training process."
   displayNotes(note);
@@ -55,6 +56,7 @@ gptForm.addEventListener("submit", async (event) => {
   state.model = await train(hyperparams, "nanogpt");
 
   // update style
+  state.training = false;
   updateStyle(state);
 });
 

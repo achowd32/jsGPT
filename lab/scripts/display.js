@@ -24,6 +24,7 @@ function displaySample(sample){
 }
 
 function updateStyle(state) {
+  const trainBtn = document.getElementById("train-button");
   const downloadBtn = document.getElementById("download-button");
   if (state.model == null){
     downloadBtn.style.cursor = "default";
@@ -32,6 +33,14 @@ function updateStyle(state) {
     downloadBtn.style.cursor = "pointer";
     downloadBtn.style.background = "black";
   } 
+
+  if (state.training){
+    trainBtn.style.cursor = "default";
+    trainBtn.style.background = "grey";
+  } else {
+    trainBtn.style.cursor = "pointer";
+    trainBtn.style.background = "black";
+  }
 }
 
 export { clear, displayNotes, displayLoss, displaySample, updateStyle };
