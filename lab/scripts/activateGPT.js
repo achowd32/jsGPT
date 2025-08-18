@@ -3,16 +3,29 @@ import { clear, displayNotes } from './display.js'
 /* TODO:
 ADD BACKGROUND CHECK
 ADD WEB WORKERS TO KEEP PAGE RESPONSIVE
-ADD ABILITY TO SAVE MODEL WEIGHTS
 ADD ABILITY TO CONTINUE TRAINING MODEL
 UPDATE FAQ
 ADD RESPONSIVE DESIGN
 ADD ABILITY TO CANCEL TRAINING RUN
 PREVENT USERS FROM RUNNING SEVERAL MODELS
 */
+
+const state = {model: null};
+
+function updateStyle() {
+  const downloadBtn = document.getElementById("download-button");
+  if (state.model == null){
+    downloadBtn.style.cursor = "default";
+    downloadBtn.style.background = "grey";
+  } else {
+    downloadBtn.style.cursor = "pointer";
+    downloadBtn.style.background = "black";
+  } 
+}
+
 // handle GPT form
 const gptForm = document.getElementById("gpt-form");
-gptForm.addEventListener("submit", (event) => {
+gptForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   // get hyperparameter values
@@ -41,12 +54,27 @@ gptForm.addEventListener("submit", (event) => {
     maxIters: parseInt(maxItersVal),
   };
 
-  // clear output divs
+  // clear output and reset state
   clear();
+  state.model = null;
+  updateStyle();
 
   // output training notes
-  displayNotes();
+  let note = "Started training! Please note that the page may be less responsive during the training process."
+  displayNotes(note);
 
   // train and output
-  train(hyperparams, "nanogpt");
+  state.model = await train(hyperparams, "nanogpt");
+
+  // update style
+  updateStyle();
+});
+
+// handle download button
+document.getElementById("download-button").addEventListener("click", async () => {
+  // if no model exists, don't do anything
+  if(state.model == null){ return; }
+
+  // download
+  await state.model.save("myModel");
 });

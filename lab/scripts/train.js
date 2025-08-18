@@ -84,6 +84,8 @@ async function train(hyperparams, modelType){
   optimizer.dispose();
   cont.dispose();
   gen.dispose();
+
+  return model;
 }
 
 export { train };

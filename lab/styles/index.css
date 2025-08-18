@@ -49,13 +49,21 @@ p {
   flex: 0 0 450px;
 }
 
-#train-button {
+.btn {
   color: white;
-  background: black;
   border: none;
   font-size: 1em;
   padding: 0.3em;
+}
+
+#train-button {
+  background: black;
   cursor: pointer;
+}
+
+#download-button {
+  background: grey;
+  cursor: default;
 }
 
 /* ------ OUTPUT SECTION ------ */

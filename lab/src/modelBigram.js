@@ -63,8 +63,9 @@ class BigramLanguageModel {
     return this.model.getWeights();
   }
 
-  save(filename){
-    return this.model.save(filename);
+  async save(filepath){
+    // save the model to a downloadable file
+    return this.model.save(`downloads://${filepath}`);
   }
 
   async load(filename){

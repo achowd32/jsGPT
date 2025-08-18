@@ -7,9 +7,9 @@ function clear(){
   sampleDiv.innerHTML =  '';
 }
 
-function displayNotes() {
+function displayNotes(note) {
   const notesDisplay = document.getElementById("notes-display");
-  notesDisplay.innerHTML += "<p><b>Started training! Please note that the page may be less responsive during the training process.</b></p>";
+  notesDisplay.innerHTML += `<p><b>${note}</b></p>`;
 }
 
 function displayLoss(i, trainLoss, valLoss){

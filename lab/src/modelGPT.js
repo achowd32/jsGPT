@@ -161,7 +161,7 @@ class GPTLanguageModel {
 
   async save(filepath){
     // save the model to a file
-    return this.gptModel.save(`file://${filepath}`);
+    return this.gptModel.save(`downloads://${filepath}`);
   }
 
   async load(filepath){
