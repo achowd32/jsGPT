@@ -8,11 +8,21 @@
     <h2> How does tokenization work? </h2>
     <p> Each unique character in the training data is simply mapped to a unique token. For instance, 'a' might be mapped to the token 1, 'b' might be mapped to the token 2, etc. </p>
     <h2> What is each hyperparameter? </h2>
-    <p id="no-margin"> Batch Size: how many batches of data is the model fed during a single iteration.</p>
-    <p id="no-margin"> Block Size: how many tokens are included in a single batch of data.</p>
-    <p id="no-margin"> Learning Rate: how much to adjust model weights during a single training iteration.</p>
-    <p id="no-margin"> Eval Interval: how many training iteration before we log the model train and validation loss. Note that this is not a "true" hyperparameter, and does not impact training.</p>
-    <p> Max Iterations: how many iterations to train the model for.</p>
+    <p> We divide hyperparameters up into several groups depending on the way they are used in the pipeline. Some hyperparameters directly impact model architecture ("Architectural Hyperparameters"), while others impact the way the model is trained ("Training Hyperparameters"). Below is an explanation of each hyperparameter, divided into these various groups.</p>
+    <h3> Architectural Hyperparameters: </h3>
+    <p id="no-margin"> <b>Context Size</b>: the size of the context window for the NanoGPT model. This corresponds to "Block Size" for the Bigram model, but actually impacts model architecture. </p>
+    <p id="no-margin"> <b>Number of Embeddings</b>: the size of the embedding dimension used to represent each token.</p>
+    <p id="no-margin"> <b>Number of Transformers</b>: the number of transformer blocks applied sequentially in the model.</p>
+    <p id="no-margin"> <b>Number of Heads</b>: the number of self-attention heads per transformer block.</p>
+    <p id="no-margin"> <b>Head Size</b>: the size of the key, query, and value embeddings in each head of self-attention.</p>
+    <p id="no-margin"> <b>Dropout</b>: the rate of dropout (i.e. randomly setting certain nodes to output 0) throughout the model.</p>
+    <br>
+    <h3> Training Hyperparameters: </h3>
+    <p id="no-margin"> <b>Batch Size</b>: how many batches of data is the model fed during a single iteration.</p>
+    <p id="no-margin"> <b>Block Size</b>: how many tokens are contained in one batch of training data. This is akin to "Context Size" for the NanoGPT model, but doesn't impact the architecture of the Bigram model.</p>
+    <p id="no-margin"> <b>Learning Rate</b>: how much to adjust model weights during a single training iteration.</p>
+    <p id="no-margin"> <b>Eval Interval</b>: how many training iteration before we log the model train and validation loss. Note that this is not a "true" hyperparameter, and does not impact training.</p>
+    <p> <b>Max Iterations</b>: how many iterations to train the model for.</p>
     <h2> I'm still confused. </h2>
     <p> Check out Andrej Karpathy's excellent <a href="https://youtu.be/kCc8FmEb1nY?si=g1R5rPJPDT5fwPpL">video</a> on building NanoGPT from scratch, which was a major source of inspiration for this project! </p>
   </body>
