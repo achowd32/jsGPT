@@ -1,5 +1,5 @@
 # jsGPT
-A basic implementation of NanoGPT written in TensorflowJS.
+Train a custom transformer model in the frontend, powered by TensorFlowJS and WebGPU!
 
 ## Outline
 The following architectures have been written to run on the Node.js backend (using C++ bindings), and can be found in the `models/` directory:
@@ -10,7 +10,8 @@ The following architectures have been written to run on the Node.js backend (usi
 
 I have written both a basic bigram model architecture and the full NanoGPT architecture. This is useful for pedagogical purposes, as it is often easier to try and grasp the workings of the bigram model before moving to NanoGPT. Additionally, I have written each architecture as both a TensorflowJS custom layer and a TensorflowJS model; if this project is ever useful to anybody, they can select which API is more suitable to their needs.
 
-The `lab/` directory contains code for a simple website which allows users to experiment with training the models as implemented in TensorflowJS. The site runs on vanilla HTML, CSS, and JavaScript, and uses the WebGPU backend to allow for rapid execution of the training pipeline. This is currently a work in progress.
+The `lab/` directory contains code for a simple website which allows users to experiment with training the models as implemented in TensorflowJS. The site runs on vanilla HTML, CSS, and JavaScript, and uses the WebGPU, WebGL, or WASM backends to allow for rapid execution of the training pipeline. The site is functioning and can be found [here](https://javascript-gpt.netlify.app/), though do note that webpage responsivity is currently being worked on.
+
 ## Purpose
 1. To assist with my assigned research project, which involves creating a pipeline for training LLMs in the shell.
 2. To get more familiar with popular ML frameworks by porting components across them.
